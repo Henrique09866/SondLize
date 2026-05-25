@@ -133,7 +133,7 @@ src/
 - **Performance otimizada** com React Compiler
 - **Desenvolvimento com TypeScript** para melhor qualidade
 
-## 👨‍💻 Henrique
+## 👨‍💻 Autor
 
 **Henrique** - [GitHub](https://github.com/Henrique09866)
 
