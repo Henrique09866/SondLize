@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  Alert,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
-  ActivityIndicator,
-  Alert,
+  View,
 } from 'react-native';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SIZES } from '../constants/theme';
+import { COLORS, RADIUS, SIZES, SPACING, TYPOGRAPHY } from '../constants/theme';
 import { useAuthStore } from '../store/useAuthStore';
 
 export const LoginScreen: React.FC = () => {
@@ -67,7 +68,11 @@ export const LoginScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        <Text style={styles.title}>Sondlize</Text>
+        <Image
+          source={require('../../assets/images/sondlize-logo.png')}
+          style={styles.logo}
+          resizeMode="contain"
+        />
         <Text style={styles.subtitle}>
           {isSignUp ? 'Criar conta' : 'Entrar'}
         </Text>
@@ -146,6 +151,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: SPACING.xl,
     gap: SPACING.md,
+  },
+  logo: {
+    width: '100%',
+    height: 120,
+    alignSelf: 'center',
+    marginBottom: SPACING.sm,
   },
   title: {
     ...TYPOGRAPHY.display,

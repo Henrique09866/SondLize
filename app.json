@@ -29,11 +29,10 @@
       "package": "com.anonymous.sondlize"
     },
     "web": {
-      "output": "static",
+      "output": "single",
       "favicon": "./assets/images/favicon.png"
     },
     "plugins": [
-      "expo-router",
       [
         "expo-splash-screen",
         {
@@ -54,11 +53,23 @@
           "defaultChannel": "playback",
           "sounds": []
         }
+      ],
+      "expo-font",
+      "expo-web-browser",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "2.0.21"
+          }
+        }
       ]
     ],
-    "experiments": {
-      "typedRoutes": true,
-      "reactCompiler": true
-    }
+    "extra": {
+      "eas": {
+        "projectId": "6df3b55f-4ea2-4b18-a398-2f9aba3a3e74"
+      }
+    },
+    "owner": "henriqhsihz"
   }
 }
