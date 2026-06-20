@@ -1,52 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import TrackPlayer, { Capability, AppKilledPlaybackBehavior } from 'react-native-track-player';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { usePlayerStore } from './src/store/usePlayerStore';
 import { useLibraryStore } from './src/store/useLibraryStore';
 import { setupNotifications } from './src/services/notificationService';
 
 export default function App() {
-  const [isPlayerReady, setIsPlayerReady] = useState(false);
-
   useEffect(() => {
     let appStateSubscription: any;
     let isInitialized = false;
 
     async function initTrackPlayer() {
       if (isInitialized) return;
-      
       try {
-        await TrackPlayer.setupPlayer();
-        await TrackPlayer.updateOptions({
-          android: {
-            appKilledPlaybackBehavior: AppKilledPlaybackBehavior.StopPlaybackAndRemoveNotification,
-          },
-          capabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
-            Capability.SeekTo,
-          ],
-          compactCapabilities: [
-            Capability.Play,
-            Capability.Pause,
-            Capability.SkipToNext,
-            Capability.SkipToPrevious,
-          ],
-        });
         usePlayerStore.getState().initListeners();
         isInitialized = true;
-        setIsPlayerReady(true);
       } catch (e: any) {
-        if (e?.message?.includes('already initialized')) {
-          isInitialized = true;
-          setIsPlayerReady(true);
-        } else {
-          console.error('Erro ao configurar TrackPlayer:', e);
-        }
+        console.error('Erro ao configurar AudioService:', e);
       }
     }
 
@@ -68,7 +39,6 @@ export default function App() {
         }
       } catch (e) {
         console.error('Erro ao iniciar App:', e);
-        setIsPlayerReady(true);
       }
     }
 
@@ -78,10 +48,6 @@ export default function App() {
       appStateSubscription?.remove();
     };
   }, []);
-
-  if (!isPlayerReady) {
-    return null;
-  }
 
   return (
     <SafeAreaProvider>

@@ -11,6 +11,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: false, // RNTP já exibe a notificação de mídia nativa
     shouldPlaySound: false,
     shouldSetBadge: false,
+    shouldShowBanner: false,
+    shouldShowList: false,
   }),
 });
 

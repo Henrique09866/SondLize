@@ -14,7 +14,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useProgress } from 'react-native-track-player';
 
 import { LyricsView } from '../components/LyricsView';
 import { EqualizerSheet } from '../components/EqualizerSheet';
@@ -168,7 +167,8 @@ export const PlayerScreen: React.FC = () => {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying    = usePlayerStore((s) => s.isPlaying);
   
-  const { position, duration } = useProgress(500);
+  const position = usePlayerStore((s) => s.position);
+  const duration = usePlayerStore((s) => s.duration);
 
   const play         = usePlayerStore((s) => s.play);
   const pause        = usePlayerStore((s) => s.pause);

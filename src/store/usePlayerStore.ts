@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import TrackPlayer, { State, Event, Track as RNTrack } from 'react-native-track-player';
+import { audioService } from '../services/audioService';
 import { Track } from '../core/entities';
 
 export type RepeatMode = 'off' | 'all' | 'one';
@@ -14,6 +14,8 @@ interface PlayerState {
   currentTrack: Track | null;
   isPlaying: boolean;
   isLoading: boolean;
+  position: number; // in seconds
+  duration: number; // in seconds
 
   // Modes
   shuffleEnabled: boolean;
@@ -57,15 +59,48 @@ function buildShuffledQueue(tracks: Track[], startIndex: number): Track[] {
   return [chosen, ...shuffleArray(rest)];
 }
 
-const mapToRNTrack = (t: Track): RNTrack => ({
-  id: t.id,
-  url: t.file,
-  title: t.title,
-  artist: t.artist || 'Artista Desconhecido',
-  artwork: t.artwork,
-});
-
 export const usePlayerStore = create<PlayerState>((set, get) => {
+  const loadAndPlayTrack = async (track: Track) => {
+    try {
+      set({ isLoading: true, currentTrack: track, position: 0, duration: 0 });
+      await audioService.load(track.file, (status) => {
+        if (!status.isLoaded) {
+          if (status.error) {
+            console.error('[usePlayerStore] Playback status error:', status.error);
+          }
+          return;
+        }
+
+        const isPlaying = status.isPlaying;
+        const isLoading = status.isBuffering;
+        const position = status.positionMillis / 1000;
+        const duration = status.durationMillis ? status.durationMillis / 1000 : 0;
+
+        set({ isPlaying, isLoading, position, duration });
+
+        if (status.didJustFinish) {
+          const { repeatMode, queue, currentIndex, skipNext } = get();
+          if (repeatMode === 'one') {
+            audioService.seek(0).then(() => audioService.play());
+          } else if (repeatMode === 'all') {
+            skipNext();
+          } else {
+            if (currentIndex < queue.length - 1) {
+              skipNext();
+            } else {
+              // End of queue
+              audioService.pause().then(() => audioService.seek(0));
+            }
+          }
+        }
+      });
+      await audioService.play();
+    } catch (e) {
+      console.error('[usePlayerStore] Error loading and playing track:', e);
+      set({ isLoading: false });
+    }
+  };
+
   // Fade out loop for sleep timer
   setInterval(async () => {
     const { sleepTimerEnd, isPlaying } = get();
@@ -73,14 +108,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     const now = Date.now();
     const timeLeft = sleepTimerEnd - now;
-    
+
     if (timeLeft <= 0) {
-      await TrackPlayer.pause();
-      await TrackPlayer.setVolume(1.0);
+      await audioService.pause();
+      await audioService.setVolume(1.0);
       set({ sleepTimerEnd: null });
     } else if (timeLeft <= 10000) {
       const volume = Math.max(0, timeLeft / 10000);
-      await TrackPlayer.setVolume(volume);
+      await audioService.setVolume(volume);
     }
   }, 1000);
 
@@ -91,6 +126,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     currentTrack: null,
     isPlaying: false,
     isLoading: false,
+    position: 0,
+    duration: 0,
     shuffleEnabled: false,
     repeatMode: 'off',
     sleepTimerEnd: null,
@@ -98,23 +135,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     eqBands: [0, 0, 0, 0, 0],
 
     initListeners: () => {
-      TrackPlayer.addEventListener(Event.PlaybackState, (event) => {
-        const isPlaying = event.state === State.Playing;
-        const isLoading = event.state === State.Buffering || event.state === State.Connecting;
-        set({ isPlaying, isLoading });
-
-        if (isPlaying) {
-          // Restore volume if we were fading out
-          TrackPlayer.setVolume(1.0);
-        }
-      });
-
-      TrackPlayer.addEventListener(Event.PlaybackActiveTrackChanged, (event) => {
-        if (event.index !== undefined) {
-          const track = get().queue[event.index];
-          set({ currentIndex: event.index, currentTrack: track || null });
-        }
-      });
+      audioService.init();
     },
 
     playQueue: async (tracks, startIndex) => {
@@ -135,47 +156,74 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         queue: activeQueue,
         currentIndex: initialIndex,
         currentTrack: initialTrack || null,
+        position: 0,
+        duration: 0,
       });
-      
-      await TrackPlayer.reset();
-      await TrackPlayer.add(activeQueue.map(mapToRNTrack));
-      await TrackPlayer.skip(initialIndex);
-      await TrackPlayer.play();
+
+      if (initialTrack) {
+        await loadAndPlayTrack(initialTrack);
+      }
     },
 
     skipNext: async () => {
-      try {
-        await TrackPlayer.skipToNext();
-      } catch (e) {
-        if (get().repeatMode === 'all') {
-          await TrackPlayer.skip(0);
+      const { queue, currentIndex, repeatMode } = get();
+      let nextIndex = currentIndex + 1;
+
+      if (nextIndex >= queue.length) {
+        if (repeatMode === 'all') {
+          nextIndex = 0;
+        } else {
+          return; // No more tracks in queue
         }
+      }
+
+      const nextTrack = queue[nextIndex];
+      if (nextTrack) {
+        set({ currentIndex: nextIndex });
+        await loadAndPlayTrack(nextTrack);
       }
     },
 
     skipPrev: async () => {
-      const progress = await TrackPlayer.getProgress();
-      if (progress.position > 3) {
-        await TrackPlayer.seekTo(0);
-      } else {
-        try {
-          await TrackPlayer.skipToPrevious();
-        } catch (e) {
-          await TrackPlayer.seekTo(0);
+      const { queue, currentIndex, position } = get();
+
+      // If the current track has played for more than 3 seconds, restart it
+      if (position > 3) {
+        await audioService.seek(0);
+        return;
+      }
+
+      let prevIndex = currentIndex - 1;
+      if (prevIndex < 0) {
+        if (get().repeatMode === 'all') {
+          prevIndex = queue.length - 1;
+        } else {
+          // Restart first track
+          await audioService.seek(0);
+          return;
         }
+      }
+
+      const prevTrack = queue[prevIndex];
+      if (prevTrack) {
+        set({ currentIndex: prevIndex });
+        await loadAndPlayTrack(prevTrack);
       }
     },
 
     play: async () => {
-      await TrackPlayer.play();
+      const { currentTrack } = get();
+      if (currentTrack) {
+        await audioService.play();
+      }
     },
 
     pause: async () => {
-      await TrackPlayer.pause();
+      await audioService.pause();
     },
 
     seekTo: async (seconds) => {
-      await TrackPlayer.seekTo(seconds);
+      await audioService.seek(seconds);
     },
 
     toggleShuffle: async () => {
@@ -183,7 +231,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const next = !shuffleEnabled;
 
       const idx = queue.findIndex(t => t.id === currentTrack?.id);
-      
+
       let newQueue: Track[];
       let newIndex = 0;
 
@@ -196,43 +244,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
 
       set({ shuffleEnabled: next, queue: newQueue, currentIndex: newIndex });
-      
-      // Update TrackPlayer
-      const currentPos = await TrackPlayer.getProgress();
-      const isPlaying = get().isPlaying;
-      
-      await TrackPlayer.reset();
-      await TrackPlayer.add(newQueue.map(mapToRNTrack));
-      await TrackPlayer.skip(newIndex);
-      await TrackPlayer.seekTo(currentPos.position);
-      if (isPlaying) {
-        await TrackPlayer.play();
-      }
     },
 
     cycleRepeat: () => {
-      // NOTE: RNTP RepeatMode values are different
-      // RNTP.RepeatMode.Off, RNTP.RepeatMode.Track, RNTP.RepeatMode.Queue
       const { repeatMode } = get();
       const next: RepeatMode = repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off';
       set({ repeatMode: next });
-      
-      // Sync with RNTP
-      let rntpMode;
-      if (next === 'off') rntpMode = 0; // RepeatMode.Off
-      else if (next === 'all') rntpMode = 2; // RepeatMode.Queue
-      else rntpMode = 1; // RepeatMode.Track
-      
-      TrackPlayer.setRepeatMode(rntpMode as any);
     },
 
     setSleepTimer: (minutes) => {
       if (minutes === null) {
         set({ sleepTimerEnd: null });
-        TrackPlayer.setVolume(1.0);
+        audioService.setVolume(1.0);
       } else {
         set({ sleepTimerEnd: Date.now() + minutes * 60 * 1000 });
-        TrackPlayer.setVolume(1.0);
+        audioService.setVolume(1.0);
       }
     },
 

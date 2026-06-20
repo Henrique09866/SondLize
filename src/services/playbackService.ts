@@ -1,3 +1,4 @@
+/*
 import TrackPlayer, { Event } from 'react-native-track-player';
 
 module.exports = async function () {
@@ -8,3 +9,4 @@ module.exports = async function () {
   TrackPlayer.addEventListener(Event.RemotePrevious, () => TrackPlayer.skipToPrevious());
   TrackPlayer.addEventListener(Event.RemoteSeek, (event) => TrackPlayer.seekTo(event.position));
 };
+*/

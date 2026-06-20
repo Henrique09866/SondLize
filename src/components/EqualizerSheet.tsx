@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: RADIUS.sheet,
     paddingHorizontal: SPACING.screenPadding,
     paddingBottom: SPACING['3xl'],
-    ...SHADOWS.up,
+    ...SHADOWS.md,
   },
   handle: {
     width: 40,
@@ -171,7 +171,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.accent.primary,
   },
   presetText: {
-    ...TYPOGRAPHY.button,
+    ...TYPOGRAPHY.label,
     color: COLORS.text.secondary,
   },
   presetTextActive: {

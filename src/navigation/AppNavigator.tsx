@@ -22,7 +22,10 @@ import {
   BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+/*
 import { useProgress } from 'react-native-track-player';
+*/
+// TODO: Substituir lógica do TrackPlayer por expo-av Audio
 
 import {
   LoginScreen,
@@ -204,7 +207,8 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
   const pause        = usePlayerStore((s) => s.pause);
   const skipNext     = usePlayerStore((s) => s.skipNext);
 
-  const { position, duration } = useProgress(1000);
+  const position = usePlayerStore((s) => s.position);
+  const duration = usePlayerStore((s) => s.duration);
   const progress = duration > 0 ? position / duration : 0;
 
   return (

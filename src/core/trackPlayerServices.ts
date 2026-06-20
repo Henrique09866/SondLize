@@ -1,3 +1,4 @@
+/*
 import TrackPlayer, {
   AppKilledPlaybackBehavior,
   Capability,
@@ -5,10 +6,6 @@ import TrackPlayer, {
   RepeatMode,
 } from 'react-native-track-player';
 
-/**
- * Configures and initializes the TrackPlayer instance.
- * Must be called as early as possible in the app lifecycle.
- */
 export async function setupPlayer() {
   let isSetup = false;
   try {
@@ -39,11 +36,6 @@ export async function setupPlayer() {
   return isSetup;
 }
 
-/**
- * Service to handle background events from the OS, such as 
- * clicking "Play", "Pause", or "Next" on the lock screen.
- * This must be registered via TrackPlayer.registerPlaybackService
- */
 export async function PlaybackService() {
   TrackPlayer.addEventListener(Event.RemotePlay, () => {
     TrackPlayer.play();
@@ -67,3 +59,4 @@ export async function PlaybackService() {
     }
   });
 }
+*/
