@@ -1,7 +1,5 @@
-Aqui está um README profissional, focado em portfolio, reconhecendo que é um projeto pessoal robusto. Cria um arquivo chamado README.md na raiz do seu projeto e cola isso:
 
-🎵 SondLize
-<img width="1254" height="1254" alt="SondLinze Logo" src="https://github.com/user-attachments/assets/52d95f76-edcb-4eb1-bee9-0a99f0b04de7" />
+<img width="600" height="600" alt="SondLinze Logo" src="https://github.com/user-attachments/assets/52d95f76-edcb-4eb1-bee9-0a99f0b04de7" />
 
 Seu player de música offline, privado e fluido.
 
