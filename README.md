@@ -1,35 +1,46 @@
-Integração com Firebase (Sincronização Nuvem / PC)
-O objetivo é substituir o armazenamento puramente local do aplicativo (AsyncStorage e pasta local do celular) por uma infraestrutura na nuvem usando o Firebase. Isso permitirá que, no futuro, você acesse sua conta no PC e todas as suas músicas, pastas e playlists estejam lá prontas para tocar.
+Aqui está um README profissional, focado em portfolio, reconhecendo que é um projeto pessoal robusto. Cria um arquivo chamado README.md na raiz do seu projeto e cola isso:
 
-IMPORTANT
+🎵 SondLize
+<img width="1254" height="1254" alt="SondLinze Logo" src="https://github.com/user-attachments/assets/52d95f76-edcb-4eb1-bee9-0a99f0b04de7" />
 
-A integração com o Firebase exige a criação de um projeto no console do Firebase e a obtenção das chaves de configuração (API Keys).
+Seu player de música offline, privado e fluido.
 
-Resoluções (Aprovado)
-Autenticação: Criaremos uma tela de Login e Cadastro (Email/Senha) para que você tenha sua própria conta.
-Upload de Músicas (Storage): O app fará o upload para a nuvem, mas manterá uma cópia local no celular para que a música toque perfeitamente offline (sem gastar internet sempre que for tocar).
-Músicas Antigas: Como não há músicas antigas importantes cadastradas, o banco de dados começará do zero, perfeitamente limpo.
-Proposed Changes
-Dependências
-Instalar o SDK do Firebase (firebase). Utilizaremos o SDK Web/JS que é 100% compatível com React Native/Expo e facilitará muito quando formos portar o app para a Web/PC.
-Componente de Autenticação (src/services/firebase.ts)
-[NEW] src/services/firebase.ts
-Inicialização do Firebase App com as suas credenciais.
-Configuração do Auth, Firestore (banco de dados) e Storage (arquivos).
-Interface
-[NEW] src/screens/LoginScreen.tsx
-Criar a tela simples de autenticação (Login / Cadastro) com email e senha.
-[MODIFY] src/navigation/AppNavigator.tsx
-Fazer com que o app mostre a LoginScreen se o usuário não estiver logado, e o MainTabs apenas se o login for feito com sucesso.
-Modificação do Zustand (Lojas de Estado)
-[MODIFY] src/store/useLibraryStore.ts
-Upload: Modificar a função importMusic para, após selecionar o arquivo, copiar para a pasta local offline e em seguida fazer o upload do MP3 para o Firebase Storage.
-Banco de Dados: Salvar os metadados da música no Firestore.
-Sincronização: Buscar as músicas direto do Firestore e garantir que existam localmente para tocar offline.
-[MODIFY] src/store/useFoldersStore.ts e usePlaylistsStore.ts
-O mesmo processo: salvar Pastas e Playlists no Firestore associados ao ID do usuário logado.
-Verification Plan
-Manual Verification
-Testar a criação de uma conta / login.
-Importar uma música e verificar se ela aparece no Console do Firebase (no Storage e no Firestore).
-Tocar a música importada da nuvem/local para verificar se tudo funciona offline e online.
+📖 Sobre o Projeto
+O SondLize é um aplicativo mobile de reprodução de música offline desenvolvido em React Native. O foco principal do projeto é fornecer uma experiência de audição limpa, sem anúncios e sem dependência de internet, gerenciando arquivos de áudio locais diretamente no dispositivo do usuário.
+
+Este projeto foi construído do zero enfrentando desafios complexos de arquitetura nativa, migração de motores de áudio e gerenciamento de estado em larga escala.
+
+🛠️ Tech Stack
+Framework: React Native (Expo SDK 54)
+Linguagem: TypeScript
+Gerenciamento de Estado: Zustand
+Navegação: React Navigation v7
+Motor de Áudio: expo-av (Arquitetura Bridgeless)
+Armazenamento Local: expo-file-system & @react-native-async-storage/async-storage
+Backend/Cloud: Firebase (Integração para sincronização de dados)
+Metadados: jsmediatags (Parse de ID3 tags de arquivos MP3/WAV)
+⚙️ Como Rodar o Projeto
+⚠️ Nota: Este projeto utiliza módulos nativos (como expo-av e expo-file-system). O uso do aplicativo padrão "Expo Go" não é compatível. É necessário gerar o build de desenvolvimento.
+
+Pré-requisitos:
+
+Node.js >= 18
+Android Studio & SDK configurado (Variáveis de ambiente ANDROID_HOME ativas)
+Um dispositivo físico Android (Recomendado) ou Emulador.
+Passos:
+
+# 1. Clone o repositóriogit clone https://github.com/seu-usuario/sondlize.gitcd sondlize# 2. Instale as dependênciasnpm install# 3. Gere os arquivos nativosnpx expo prebuild# 4. Rode no dispositivo conectadonpx expo run:android
+🚧 Status do Desenvolvimento (WIP)
+O projeto está em desenvolvimento ativo. As funcionalidades principais já foram implementadas, mas ajustes finos de UI/UX estão em andamento.
+
+ Reprodução de áudio offline
+ Parse de metadados (Capa, Artista, Título)
+ Gerenciamento de fila de reprodução
+ Suporte a Nova Arquitetura (Bridgeless)
+ Copiagem segura de arquivos temporários para armazenamento permanente
+ Refatoração dos controles da UI do Player
+ Implementação de notificações de mídia interativas em background
+ Sistema de equalização
+ 
+📝 Licença
+Este projeto é de uso pessoal e educacional.
