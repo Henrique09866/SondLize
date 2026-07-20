@@ -206,6 +206,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
   const play         = usePlayerStore((s) => s.play);
   const pause        = usePlayerStore((s) => s.pause);
   const skipNext     = usePlayerStore((s) => s.skipNext);
+  const skipPrev     = usePlayerStore((s) => s.skipPrev);
 
   const position = usePlayerStore((s) => s.position);
   const duration = usePlayerStore((s) => s.duration);
@@ -221,6 +222,7 @@ const CustomTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
           isPlaying={isPlaying}
           progress={progress}
           onPlayPause={isPlaying ? pause : play}
+          onPrev={skipPrev}
           onNext={skipNext}
           onPress={() => navigation.navigate('PlayerScene' as never)}
         />

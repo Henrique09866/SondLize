@@ -103,19 +103,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
   // Fade out loop for sleep timer
   setInterval(async () => {
-    const { sleepTimerEnd, isPlaying } = get();
-    if (!sleepTimerEnd || !isPlaying) return;
+    try {
+      const { sleepTimerEnd, isPlaying } = get();
+      if (!sleepTimerEnd || !isPlaying) return;
 
-    const now = Date.now();
-    const timeLeft = sleepTimerEnd - now;
+      const now = Date.now();
+      const timeLeft = sleepTimerEnd - now;
 
-    if (timeLeft <= 0) {
-      await audioService.pause();
-      await audioService.setVolume(1.0);
-      set({ sleepTimerEnd: null });
-    } else if (timeLeft <= 10000) {
-      const volume = Math.max(0, timeLeft / 10000);
-      await audioService.setVolume(volume);
+      if (timeLeft <= 0) {
+        await audioService.pause();
+        await audioService.setVolume(1.0);
+        set({ sleepTimerEnd: null });
+      } else if (timeLeft <= 10000) {
+        const volume = Math.max(0, timeLeft / 10000);
+        await audioService.setVolume(volume);
+      }
+    } catch (e) {
+      console.warn('[usePlayerStore] Sleep timer tick error:', e);
     }
   }, 1000);
 

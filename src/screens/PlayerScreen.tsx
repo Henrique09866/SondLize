@@ -9,7 +9,6 @@ import {
   Animated,
   PanResponder,
   Dimensions,
-  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -175,6 +174,10 @@ export const PlayerScreen: React.FC = () => {
   const skipNext     = usePlayerStore((s) => s.skipNext);
   const skipPrev     = usePlayerStore((s) => s.skipPrev);
   const seekTo       = usePlayerStore((s) => s.seekTo);
+  const shuffleEnabled = usePlayerStore((s) => s.shuffleEnabled);
+  const repeatMode   = usePlayerStore((s) => s.repeatMode);
+  const toggleShuffle = usePlayerStore((s) => s.toggleShuffle);
+  const cycleRepeat   = usePlayerStore((s) => s.cycleRepeat);
 
   const [showLyrics, setShowLyrics] = useState(false);
   const [showEq, setShowEq] = useState(false);
@@ -343,8 +346,19 @@ export const PlayerScreen: React.FC = () => {
         </TouchableOpacity>
       </View>
 
-      {/* ── Extra Tools (EQ, Lyrics, Timer) ── */}
+      {/* ── Extra Tools (Shuffle, Repeat, EQ, Lyrics, Timer) ── */}
       <View style={styles.toolsRow}>
+        <TouchableOpacity onPress={toggleShuffle} style={[styles.toolBtn, shuffleEnabled && styles.toolBtnActive]}>
+          <Ionicons name="shuffle-outline" size={24} color={shuffleEnabled ? COLORS.white : COLORS.text.secondary} />
+        </TouchableOpacity>
+
+        <TouchableOpacity onPress={cycleRepeat} style={[styles.toolBtn, repeatMode !== 'off' && styles.toolBtnActive]}>
+          <Ionicons name={repeatMode === 'one' ? "repeat-outline" : "repeat-outline"} size={24} color={repeatMode !== 'off' ? COLORS.white : COLORS.text.secondary} />
+          {repeatMode === 'one' && (
+            <Text style={[styles.repeatBadge, { color: COLORS.white }]}>1</Text>
+          )}
+        </TouchableOpacity>
+
         <TouchableOpacity onPress={() => setShowEq(true)} style={styles.toolBtn}>
           <Ionicons name="options-outline" size={24} color={COLORS.text.secondary} />
         </TouchableOpacity>
@@ -507,5 +521,12 @@ const styles = StyleSheet.create({
   },
   toolBtnActive: {
     backgroundColor: COLORS.accent.primary,
-  }
+  },
+  repeatBadge: {
+    position: 'absolute',
+    bottom: 6,
+    right: 6,
+    fontSize: 10,
+    fontWeight: '700',
+  },
 });

@@ -29,6 +29,7 @@ export interface MiniPlayerProps {
   isPlaying: boolean;
   progress: number;          // 0–1
   onPlayPause: () => void;
+  onPrev: () => void;
   onNext: () => void;
   onPress: () => void;       // open full player
   onDismiss?: () => void;    // swipe down to close
@@ -103,6 +104,35 @@ const NextIcon: React.FC<{ size?: number; color?: string }> = ({
   </View>
 );
 
+const PrevIcon: React.FC<{ size?: number; color?: string }> = ({
+  size = 18,
+  color = COLORS.text.secondary,
+}) => (
+  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+    <View
+      style={{
+        width: 3,
+        height: size,
+        backgroundColor: color,
+        borderRadius: 1,
+        marginRight: 2,
+      }}
+    />
+    <View
+      style={{
+        width: 0,
+        height: 0,
+        borderTopWidth: size / 2,
+        borderBottomWidth: size / 2,
+        borderRightWidth: size * 0.7,
+        borderTopColor: 'transparent',
+        borderBottomColor: 'transparent',
+        borderRightColor: color,
+      }}
+    />
+  </View>
+);
+
 // ─── Main Component ──────────────────────────────────────────
 
 export const MiniPlayer: React.FC<MiniPlayerProps> = ({
@@ -112,6 +142,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
   isPlaying,
   progress,
   onPlayPause,
+  onPrev,
   onNext,
   onPress,
   onDismiss,
@@ -219,6 +250,14 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
 
         {/* Controls — stop propagation so they don't open player */}
         <View style={styles.controls}>
+          <TouchableOpacity
+            onPress={onPrev}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 8 }}
+            style={styles.controlButton}
+          >
+            <PrevIcon size={16} color={COLORS.text.secondary} />
+          </TouchableOpacity>
+
           <TouchableOpacity
             onPress={onPlayPause}
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 8 }}

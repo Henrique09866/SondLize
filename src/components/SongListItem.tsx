@@ -7,7 +7,9 @@ import {
   Animated,
   StyleSheet,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SIZES, OPACITY } from '../constants/theme';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -24,6 +26,7 @@ export interface SongListItemProps {
   showIndex?: boolean;
   onPress: () => void;
   onLongPress?: () => void;
+  onDelete?: () => void;
   rightAction?: React.ReactNode; // e.g. "⋯" menu button
 }
 
@@ -132,6 +135,7 @@ export const SongListItem: React.FC<SongListItemProps> = ({
   showIndex = false,
   onPress,
   onLongPress,
+  onDelete,
   rightAction,
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
@@ -188,11 +192,20 @@ export const SongListItem: React.FC<SongListItemProps> = ({
           ) : null}
         </View>
 
-        {/* Right side: duration + optional action */}
+        {/* Right side: duration + delete + optional action */}
         <View style={styles.right}>
           {duration ? (
             <Text style={styles.duration}>{formatDuration(duration)}</Text>
           ) : null}
+          {onDelete && (
+            <TouchableOpacity
+              onPress={onDelete}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              style={styles.deleteButton}
+            >
+              <Ionicons name="trash-outline" size={18} color="#FF4444" />
+            </TouchableOpacity>
+          )}
           {rightAction ?? null}
         </View>
       </TouchableOpacity>
@@ -300,6 +313,13 @@ const styles = StyleSheet.create({
   duration: {
     ...TYPOGRAPHY.numeric,
     color: COLORS.text.tertiary,
+  },
+  deleteButton: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
   },
 });
 

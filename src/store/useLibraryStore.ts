@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { documentDirectory, makeDirectoryAsync, copyAsync, deleteAsync } from 'expo-file-system/legacy';
 import { Audio } from 'expo-av';
 import { ref, uploadBytes, deleteObject } from 'firebase/storage';
 import {
@@ -101,8 +102,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
       for (const file of result.assets) {
         // The file is already copied to cache by DocumentPicker (copyToCacheDirectory: true)
-        // We use the cache URI directly
-        const fileUri = file.uri;
+        // We copy it to a permanent directory
+        const permDir = `${documentDirectory}SondLizeMusic/`;
+        await makeDirectoryAsync(permDir, { intermediates: true });
+        
+        // Generate a safe file name
+        const safeNameForLocal = file.name ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : `track_${Date.now()}.mp3`;
+        const destPath = `${permDir}${safeNameForLocal}`;
+        await copyAsync({ from: file.uri, to: destPath });
+        
+        const fileUri = destPath;
 
         const metadata = await extractMetadata(fileUri);
         const duration = await getTrackDuration(fileUri);
@@ -166,6 +175,15 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     if (!track) return;
 
     try {
+      // Delete local file from permanent storage
+      if (track.file && documentDirectory && track.file.startsWith(documentDirectory)) {
+        try {
+          await deleteAsync(track.file, { idempotent: true });
+        } catch (e) {
+          console.warn('Local file delete failed:', e);
+        }
+      }
+
       const user = auth.currentUser;
       if (user) {
         try {

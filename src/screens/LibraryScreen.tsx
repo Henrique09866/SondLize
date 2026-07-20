@@ -8,6 +8,7 @@ import {
   StyleSheet,
   StatusBar,
   Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -47,6 +48,7 @@ export const LibraryScreen: React.FC = () => {
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying    = usePlayerStore((s) => s.isPlaying);
   const playQueue    = usePlayerStore((s) => s.playQueue);
+  const pause        = usePlayerStore((s) => s.pause);
 
   const [query,   setQuery]   = useState('');
   const [sort,    setSort]    = useState<SortKey>('recent');
@@ -91,6 +93,31 @@ export const LibraryScreen: React.FC = () => {
     [filtered, playQueue, navigation],
   );
 
+  // ── Delete a track ──
+  const handleDelete = useCallback(
+    (track: Track) => {
+      Alert.alert(
+        'Excluir música',
+        `Deseja excluir "${track.title}"?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Excluir',
+            style: 'destructive',
+            onPress: async () => {
+              // Pause if this track is currently playing
+              if (currentTrack?.id === track.id) {
+                pause();
+              }
+              await deleteTrack(track.id);
+            },
+          },
+        ],
+      );
+    },
+    [currentTrack, pause, deleteTrack],
+  );
+
   // ── Render item ──
   const renderItem = useCallback(
     ({ item, index }: { item: Track; index: number }) => (
@@ -104,9 +131,10 @@ export const LibraryScreen: React.FC = () => {
         isLoading={false}
         onPress={() => handlePlay(item, index)}
         onLongPress={() => {/* TODO: context menu */}}
+        onDelete={() => handleDelete(item)}
       />
     ),
-    [currentTrack, isPlaying, handlePlay],
+    [currentTrack, isPlaying, handlePlay, handleDelete],
   );
 
   const keyExtractor = useCallback((item: Track) => item.id, []);

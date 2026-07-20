@@ -58,7 +58,7 @@ export const EqualizerSheet: React.FC<EqualizerSheetProps> = ({ visible, onClose
     })
   ).current;
 
-  if (!visible && fadeAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 1] }) as unknown as number === 0) return null;
+  if (!visible) return null;
 
   return (
     <Animated.View style={[styles.overlay, { opacity: fadeAnim }]} pointerEvents={visible ? 'auto' : 'none'}>
