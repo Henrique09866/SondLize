@@ -1,5 +1,13 @@
 
-<img width="600" height="600" alt="SondLinze Logo" src="https://github.com/user-attachments/assets/52d95f76-edcb-4eb1-bee9-0a99f0b04de7" />
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/52d95f76-edcb-4eb1-bee9-0a99f0b04de7" alt="SondLinze Logo" width="250">
+</p>
+
+<h1 align="center">🎵 SondLinze</h1>
+
+<p align="center">
+  Um player de música moderno para Android desenvolvido com React Native.
+</p>
 
 Seu player de música offline, privado e fluido.
 
