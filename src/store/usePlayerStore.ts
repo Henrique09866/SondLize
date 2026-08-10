@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import { audioService } from '../services/audioService';
+import { AppState } from 'react-native';
+import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
+import {
+  setupTrackPlayer,
+  toMediaItem,
+  toNativeRepeatMode,
+} from '../core/trackPlayerServices';
 import { Track } from '../core/entities';
 
 export type RepeatMode = 'off' | 'all' | 'one';
@@ -32,96 +38,102 @@ interface PlayerState {
   setEqBand: (index: number, value: number) => void;
 
   // Actions
-  initListeners: () => void;
+  initListeners: () => Promise<void>;
   playQueue: (tracks: Track[], startIndex: number) => Promise<void>;
-  skipNext: () => Promise<void>;
-  skipPrev: () => Promise<void>;
-  play: () => Promise<void>;
-  pause: () => Promise<void>;
-  seekTo: (seconds: number) => Promise<void>;
+  skipNext: () => void;
+  skipPrev: () => void;
+  play: () => void;
+  pause: () => void;
+  seekTo: (seconds: number) => void;
   toggleShuffle: () => void;
   cycleRepeat: () => void;
 }
 
-// Fisher-Yates shuffle
-function shuffleArray<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-function buildShuffledQueue(tracks: Track[], startIndex: number): Track[] {
-  const chosen = tracks[startIndex];
-  const rest = tracks.filter((_, i) => i !== startIndex);
-  return [chosen, ...shuffleArray(rest)];
-}
+let listenersBound = false;
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
-  const loadAndPlayTrack = async (track: Track) => {
+  const findTrackByMediaId = (mediaId: string | null | undefined): Track | null =>
+    get().queue.find((t) => t.id === mediaId) ?? null;
+
+  const syncFromPlayer = () => {
     try {
-      set({ isLoading: true, currentTrack: track, position: 0, duration: 0 });
-      await audioService.load(track.file, (status) => {
-        if (!status.isLoaded) {
-          if (status.error) {
-            console.error('[usePlayerStore] Playback status error:', status.error);
-          }
-          return;
-        }
+      const progress = TrackPlayer.getProgress();
+      const playing = TrackPlayer.isPlaying();
+      const state = TrackPlayer.getPlaybackState();
+      const index = TrackPlayer.getActiveMediaItemIndex();
+      const active = TrackPlayer.getActiveMediaItem();
 
-        const isPlaying = status.isPlaying;
-        const isLoading = status.isBuffering;
-        const position = status.positionMillis / 1000;
-        const duration = status.durationMillis ? status.durationMillis / 1000 : 0;
-
-        set({ isPlaying, isLoading, position, duration });
-
-        if (status.didJustFinish) {
-          const { repeatMode, queue, currentIndex, skipNext } = get();
-          if (repeatMode === 'one') {
-            audioService.seek(0).then(() => audioService.play());
-          } else if (repeatMode === 'all') {
-            skipNext();
-          } else {
-            if (currentIndex < queue.length - 1) {
-              skipNext();
-            } else {
-              // End of queue
-              audioService.pause().then(() => audioService.seek(0));
-            }
-          }
-        }
+      set({
+        isPlaying: playing,
+        isLoading: state === PlaybackState.Buffering,
+        currentIndex: index ?? get().currentIndex,
+        currentTrack: active?.mediaId
+          ? findTrackByMediaId(active.mediaId)
+          : get().currentTrack,
+        position: progress?.position ?? 0,
+        duration: progress?.duration ?? get().duration,
       });
-      await audioService.play();
+
+      const timer = TrackPlayer.getSleepTimer();
+      if (timer && timer.type === 'time') {
+        set({ sleepTimerEnd: Date.now() + timer.remainingSeconds * 1000 });
+      } else if (!timer) {
+        set({ sleepTimerEnd: null });
+      }
     } catch (e) {
-      console.error('[usePlayerStore] Error loading and playing track:', e);
-      set({ isLoading: false });
+      console.warn('[usePlayerStore] Falha ao sincronizar estado do player:', e);
     }
   };
 
-  // Fade out loop for sleep timer
-  setInterval(async () => {
-    try {
-      const { sleepTimerEnd, isPlaying } = get();
-      if (!sleepTimerEnd || !isPlaying) return;
+  const bindListeners = () => {
+    if (listenersBound) return;
+    listenersBound = true;
 
-      const now = Date.now();
-      const timeLeft = sleepTimerEnd - now;
+    TrackPlayer.addEventListener(Event.MediaItemTransition, ({ item, index }) => {
+      set({
+        currentIndex: index,
+        currentTrack: item?.mediaId ? findTrackByMediaId(item.mediaId) : null,
+        position: 0,
+      });
+    });
 
-      if (timeLeft <= 0) {
-        await audioService.pause();
-        await audioService.setVolume(1.0);
-        set({ sleepTimerEnd: null });
-      } else if (timeLeft <= 10000) {
-        const volume = Math.max(0, timeLeft / 10000);
-        await audioService.setVolume(volume);
+    TrackPlayer.addEventListener(Event.IsPlayingChanged, ({ playing }) => {
+      set({ isPlaying: playing });
+    });
+
+    TrackPlayer.addEventListener(Event.PlaybackStateChanged, ({ state }) => {
+      set({ isLoading: state === PlaybackState.Buffering });
+      if (state === PlaybackState.Ended) {
+        set({ isPlaying: false });
       }
-    } catch (e) {
-      console.warn('[usePlayerStore] Sleep timer tick error:', e);
-    }
-  }, 1000);
+    });
+
+    TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, ({ position, duration }) => {
+      set({ position, duration });
+    });
+
+    TrackPlayer.addEventListener(Event.PlaybackError, ({ code, message }) => {
+      console.warn(`[usePlayerStore] Erro de playback [${code}]:`, message);
+      set({ isLoading: false });
+    });
+
+    TrackPlayer.addEventListener(Event.SleepTimerTriggered, () => {
+      set({ sleepTimerEnd: null });
+    });
+
+    // Re-sincroniza o estado quando o app volta para o foreground,
+    // pois os controles da notificação podem ter mudado o player em background.
+    const appStateSub = AppState.addEventListener('change', (nextState) => {
+      if (nextState === 'active') {
+        syncFromPlayer();
+      }
+    });
+
+    return () => {
+      appStateSub.remove();
+      listenersBound = false;
+    };
+  };
 
   return {
     queue: [],
@@ -138,131 +150,94 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     eqPreset: 'Flat',
     eqBands: [0, 0, 0, 0, 0],
 
-    initListeners: () => {
-      audioService.init();
+    initListeners: async () => {
+      await setupTrackPlayer();
+      bindListeners();
+      syncFromPlayer();
     },
 
     playQueue: async (tracks, startIndex) => {
-      const { shuffleEnabled } = get();
-      let activeQueue: Track[];
-
-      if (shuffleEnabled) {
-        activeQueue = buildShuffledQueue(tracks, startIndex);
-      } else {
-        activeQueue = tracks;
-      }
-
-      const initialIndex = shuffleEnabled ? 0 : startIndex;
-      const initialTrack = activeQueue[initialIndex];
+      const { shuffleEnabled, repeatMode } = get();
+      const initialTrack = tracks[startIndex] ?? null;
 
       set({
         originalQueue: tracks,
-        queue: activeQueue,
-        currentIndex: initialIndex,
-        currentTrack: initialTrack || null,
+        queue: tracks,
+        currentIndex: startIndex,
+        currentTrack: initialTrack,
         position: 0,
         duration: 0,
+        isPlaying: false,
+        isLoading: true,
       });
 
-      if (initialTrack) {
-        await loadAndPlayTrack(initialTrack);
-      }
+      if (!initialTrack) return;
+
+      await setupTrackPlayer();
+      TrackPlayer.setMediaItems(tracks.map(toMediaItem), startIndex);
+      TrackPlayer.setRepeatMode(toNativeRepeatMode(repeatMode));
+      TrackPlayer.setShuffleEnabled(shuffleEnabled);
+      TrackPlayer.play();
     },
 
-    skipNext: async () => {
-      const { queue, currentIndex, repeatMode } = get();
-      let nextIndex = currentIndex + 1;
-
-      if (nextIndex >= queue.length) {
-        if (repeatMode === 'all') {
-          nextIndex = 0;
-        } else {
-          return; // No more tracks in queue
-        }
-      }
-
-      const nextTrack = queue[nextIndex];
-      if (nextTrack) {
-        set({ currentIndex: nextIndex });
-        await loadAndPlayTrack(nextTrack);
-      }
+    skipNext: () => {
+      TrackPlayer.skipToNext();
     },
 
-    skipPrev: async () => {
-      const { queue, currentIndex, position } = get();
-
-      // If the current track has played for more than 3 seconds, restart it
-      if (position > 3) {
-        await audioService.seek(0);
-        return;
-      }
-
-      let prevIndex = currentIndex - 1;
-      if (prevIndex < 0) {
-        if (get().repeatMode === 'all') {
-          prevIndex = queue.length - 1;
-        } else {
-          // Restart first track
-          await audioService.seek(0);
-          return;
-        }
-      }
-
-      const prevTrack = queue[prevIndex];
-      if (prevTrack) {
-        set({ currentIndex: prevIndex });
-        await loadAndPlayTrack(prevTrack);
-      }
-    },
-
-    play: async () => {
-      const { currentTrack } = get();
-      if (currentTrack) {
-        await audioService.play();
-      }
-    },
-
-    pause: async () => {
-      await audioService.pause();
-    },
-
-    seekTo: async (seconds) => {
-      await audioService.seek(seconds);
-    },
-
-    toggleShuffle: async () => {
-      const { shuffleEnabled, queue, originalQueue, currentTrack } = get();
-      const next = !shuffleEnabled;
-
-      const idx = queue.findIndex(t => t.id === currentTrack?.id);
-
-      let newQueue: Track[];
-      let newIndex = 0;
-
-      if (next) {
-        newQueue = currentTrack ? buildShuffledQueue(queue, Math.max(0, idx)) : shuffleArray(queue);
+    skipPrev: () => {
+      // Spotify behavior: se a música tocou por mais de 3s, volta ao início;
+      // caso contrário, vai para a anterior.
+      if (get().position > 3) {
+        TrackPlayer.seekTo(0);
       } else {
-        newQueue = originalQueue;
-        newIndex = originalQueue.findIndex((t) => t.id === currentTrack?.id);
-        newIndex = Math.max(0, newIndex);
+        TrackPlayer.skipToPrevious();
       }
+    },
 
-      set({ shuffleEnabled: next, queue: newQueue, currentIndex: newIndex });
+    play: () => {
+      TrackPlayer.play();
+    },
+
+    pause: () => {
+      TrackPlayer.pause();
+    },
+
+    seekTo: (seconds) => {
+      TrackPlayer.seekTo(seconds);
+    },
+
+    toggleShuffle: () => {
+      const { shuffleEnabled, originalQueue, currentTrack } = get();
+      const next = !shuffleEnabled;
+      set({ shuffleEnabled: next });
+
+      TrackPlayer.setShuffleEnabled(next);
+
+      // Ao desligar o shuffle, restaura a ordem original mantendo a faixa atual
+      if (!next && currentTrack) {
+        const newIndex = Math.max(
+          0,
+          originalQueue.findIndex((t) => t.id === currentTrack.id)
+        );
+        set({ queue: originalQueue, currentIndex: newIndex });
+      }
     },
 
     cycleRepeat: () => {
       const { repeatMode } = get();
-      const next: RepeatMode = repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off';
+      const next: RepeatMode =
+        repeatMode === 'off' ? 'all' : repeatMode === 'all' ? 'one' : 'off';
       set({ repeatMode: next });
+      TrackPlayer.setRepeatMode(toNativeRepeatMode(next));
     },
 
     setSleepTimer: (minutes) => {
       if (minutes === null) {
+        TrackPlayer.cancelSleepTimer();
         set({ sleepTimerEnd: null });
-        audioService.setVolume(1.0);
       } else {
+        TrackPlayer.sleepAfterTime(minutes * 60, { fadeOutSeconds: 10 });
         set({ sleepTimerEnd: Date.now() + minutes * 60 * 1000 });
-        audioService.setVolume(1.0);
       }
     },
 
@@ -270,6 +245,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       if (bands) set({ eqPreset: preset, eqBands: bands });
       else set({ eqPreset: preset });
     },
+
     setEqBand: (index, value) => {
       const { eqBands } = get();
       const newBands = [...eqBands];

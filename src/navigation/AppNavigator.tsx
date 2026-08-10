@@ -22,10 +22,7 @@ import {
   BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-/*
-import { useProgress } from 'react-native-track-player';
-*/
-// TODO: Substituir lógica do TrackPlayer por expo-av Audio
+import { navigationRef } from './navigationRef';
 
 import {
   LoginScreen,
@@ -355,7 +352,7 @@ export const AppNavigator: React.FC = () => {
   }
 
   return (
-    <NavigationContainer theme={NAV_THEME}>
+    <NavigationContainer ref={navigationRef} theme={NAV_THEME}>
       {user ? <AppStack /> : <AuthStack />}
     </NavigationContainer>
   );

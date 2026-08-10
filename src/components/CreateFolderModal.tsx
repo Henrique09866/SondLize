@@ -67,14 +67,16 @@ export const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.colorList}
             renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  styles.colorDot,
-                  { backgroundColor: item },
-                  selectedColor === item && styles.colorDotSelected,
-                ]}
-                onPress={() => setSelectedColor(item)}
-              />
+              <View style={styles.colorItem}>
+                <TouchableOpacity
+                  style={[
+                    styles.colorDot,
+                    { backgroundColor: item },
+                    selectedColor === item && styles.colorDotSelected,
+                  ]}
+                  onPress={() => setSelectedColor(item)}
+                />
+              </View>
             )}
           />
 
@@ -137,13 +139,20 @@ const styles = StyleSheet.create({
     marginBottom: SPACING.sm,
   },
   colorList: {
+    paddingVertical: SPACING.sm,
     paddingBottom: SPACING.lg,
+  },
+  colorItem: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
   },
   colorDot: {
     width: 36,
     height: 36,
     borderRadius: 18,
-    marginRight: SPACING.sm,
   },
   colorDotSelected: {
     borderWidth: 3,

@@ -17,8 +17,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { LyricsView } from '../components/LyricsView';
 import { EqualizerSheet } from '../components/EqualizerSheet';
 import { SleepTimerSheet } from '../components/SleepTimerSheet';
+import { SelectFolderModal } from '../components/SelectFolderModal';
 
 import { usePlayerStore } from '../store/usePlayerStore';
+import { useLibraryStore, useFoldersStore } from '../store';
 import {
   COLORS,
   TYPOGRAPHY,
@@ -84,6 +86,7 @@ const SeekSlider: React.FC<{
   const [dragging, setDragging] = useState(false);
   const [dragVal, setDragVal]   = useState(0);
   const thumbScale              = useRef(new Animated.Value(1)).current;
+  const dragValRef              = useRef(0);
 
   const expandThumb = () =>
     Animated.spring(thumbScale, { toValue: 1.5, tension: 80, friction: 10, useNativeDriver: true }).start();
@@ -97,16 +100,20 @@ const SeekSlider: React.FC<{
         setDragging(true);
         expandThumb();
         const startX = gestureState.x0 - SPACING.screenPadding;
-        setDragVal(Math.max(0, Math.min(startX / TRACK_WIDTH, 1)));
+        const v = Math.max(0, Math.min(startX / TRACK_WIDTH, 1));
+        dragValRef.current = v;
+        setDragVal(v);
       },
       onPanResponderMove: (e, gestureState) => {
         const currentX = gestureState.moveX - SPACING.screenPadding;
-        setDragVal(Math.max(0, Math.min(currentX / TRACK_WIDTH, 1)));
+        const v = Math.max(0, Math.min(currentX / TRACK_WIDTH, 1));
+        dragValRef.current = v;
+        setDragVal(v);
       },
       onPanResponderRelease: () => {
         shrinkThumb();
         setDragging(false);
-        onSeek(dragVal * duration);
+        onSeek(dragValRef.current * duration);
       },
     }),
   ).current;
@@ -169,6 +176,10 @@ export const PlayerScreen: React.FC = () => {
   const position = usePlayerStore((s) => s.position);
   const duration = usePlayerStore((s) => s.duration);
 
+  const tracks            = useLibraryStore((s) => s.tracks);
+  const updateTrackFolder = useLibraryStore((s) => s.updateTrackFolder);
+  const loadFolders       = useFoldersStore((s) => s.load);
+
   const play         = usePlayerStore((s) => s.play);
   const pause        = usePlayerStore((s) => s.pause);
   const skipNext     = usePlayerStore((s) => s.skipNext);
@@ -182,8 +193,28 @@ export const PlayerScreen: React.FC = () => {
   const [showLyrics, setShowLyrics] = useState(false);
   const [showEq, setShowEq] = useState(false);
   const [showSleepTimer, setShowSleepTimer] = useState(false);
+  const [showMoveFolder, setShowMoveFolder] = useState(false);
 
   const progress = duration > 0 ? position / duration : 0;
+
+  // ── Move track to folder ──
+  const currentFolderId = currentTrack
+    ? tracks.find((t) => t.id === currentTrack.id)?.folderId
+    : undefined;
+
+  const handleOpenMoveFolder = useCallback(() => {
+    loadFolders();
+    setShowMoveFolder(true);
+  }, [loadFolders]);
+
+  const handleMoveToFolder = useCallback(
+    (folderId: string | undefined) => {
+      if (currentTrack) {
+        updateTrackFolder(currentTrack.id, folderId);
+      }
+    },
+    [currentTrack, updateTrackFolder],
+  );
 
   // ── Cover scale animation (pulses when playing) ──
   const coverScale = useRef(new Animated.Value(isPlaying ? 1 : 0.88)).current;
@@ -263,7 +294,17 @@ export const PlayerScreen: React.FC = () => {
             <Text style={styles.topBarLabel}>TOCANDO AGORA</Text>
           </View>
 
-          <View style={styles.topBarButton} />
+          <TouchableOpacity
+            onPress={handleOpenMoveFolder}
+            style={styles.topBarButton}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
+            <Ionicons
+              name={currentFolderId ? 'folder' : 'folder-outline'}
+              size={22}
+              color={currentFolderId ? COLORS.accent.primary : COLORS.text.primary}
+            />
+          </TouchableOpacity>
         </View>
       </View>
 
@@ -374,6 +415,13 @@ export const PlayerScreen: React.FC = () => {
 
       <EqualizerSheet visible={showEq} onClose={() => setShowEq(false)} />
       <SleepTimerSheet visible={showSleepTimer} onClose={() => setShowSleepTimer(false)} />
+
+      <SelectFolderModal
+        visible={showMoveFolder}
+        onClose={() => setShowMoveFolder(false)}
+        onSelect={handleMoveToFolder}
+        currentFolderId={currentFolderId}
+      />
 
       {/* ── Bottom spacer ── */}
       <View style={{ height: insets.bottom + SPACING.lg }} />

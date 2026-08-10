@@ -1,6 +1,7 @@
 // @ts-ignore
 import jsmediatags from 'jsmediatags/dist/jsmediatags.min.js';
 import * as FileSystem from 'expo-file-system/legacy';
+import { Buffer } from 'buffer';
 
 export interface AudioMetadata {
   title?: string;
@@ -21,11 +22,8 @@ export const extractMetadata = async (uri: string): Promise<AudioMetadata> => {
           if (tag.tags.picture) {
             const { data, format } = tag.tags.picture;
             const extension = format?.includes('png') ? 'png' : 'jpg';
-            // Convert byte array to base64
-            let base64String = '';
-            for (let i = 0; i < data.length; i++) {
-              base64String += String.fromCharCode(data[i]);
-            }
+            // Convert byte array to a valid base64 string
+            const base64String = Buffer.from(data).toString('base64');
             
             // Save to FileSystem to prevent AsyncStorage quota limit crash (CursorWindow 2MB limit)
             const safeFileName = `artwork_${Date.now()}.${extension}`;

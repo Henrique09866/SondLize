@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   StyleSheet,
   StatusBar,
-  Platform,
   Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,17 +24,15 @@ import {
   SIZES,
 } from '../constants/theme';
 
-// ─── Sort options ─────────────────────────────────────────────
-
-type SortKey = 'recent' | 'title' | 'artist';
-
-const SORT_OPTIONS: { key: SortKey; label: string }[] = [
-  { key: 'recent', label: 'Recentes' },
-  { key: 'title',  label: 'Título'   },
-  { key: 'artist', label: 'Artista'  },
-];
-
 // ─── Screen ───────────────────────────────────────────────────
+
+const normalize = (value: string): string =>
+  value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+const SEARCH_FIELDS: ((t: Track) => string)[] = [
+  (t) => t.title ?? '',
+  (t) => t.artist ?? '',
+];
 
 export const LibraryScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
@@ -51,28 +48,17 @@ export const LibraryScreen: React.FC = () => {
   const pause        = usePlayerStore((s) => s.pause);
 
   const [query,   setQuery]   = useState('');
-  const [sort,    setSort]    = useState<SortKey>('recent');
   const [loading, setLoading] = useState(false);
 
-  // ── Filter + sort ──
+  // ── Filter ──
   const filtered = useMemo(() => {
-    let list = [...tracks];
+    if (!query.trim()) return tracks;
 
-    if (query.trim()) {
-      const q = query.toLowerCase();
-      list = list.filter(
-        (t) =>
-          t.title.toLowerCase().includes(q) ||
-          (t.artist ?? '').toLowerCase().includes(q),
-      );
-    }
-
-    if (sort === 'title')  list.sort((a, b) => a.title.localeCompare(b.title));
-    if (sort === 'artist') list.sort((a, b) => (a.artist ?? '').localeCompare(b.artist ?? ''));
-    // 'recent' keeps insertion order (newest first from store)
-
-    return list;
-  }, [tracks, query, sort]);
+    const q = normalize(query.trim());
+    return tracks.filter((t) =>
+      SEARCH_FIELDS.some((field) => normalize(field(t)).includes(q)),
+    );
+  }, [tracks, query]);
 
   // ── Import ──
   const handleImport = useCallback(async () => {
@@ -170,26 +156,6 @@ export const LibraryScreen: React.FC = () => {
             clearButtonMode="while-editing"
           />
         </View>
-      </View>
-
-      {/* ── Sort chips ── */}
-      <View style={styles.sortRow}>
-        {SORT_OPTIONS.map((opt) => (
-          <TouchableOpacity
-            key={opt.key}
-            onPress={() => setSort(opt.key)}
-            style={[styles.chip, sort === opt.key && styles.chipActive]}
-          >
-            <Text style={[styles.chipText, sort === opt.key && styles.chipTextActive]}>
-              {opt.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-
-        {/* Track count */}
-        <Text style={styles.trackCount}>
-          {filtered.length} {filtered.length === 1 ? 'música' : 'músicas'}
-        </Text>
       </View>
     </View>
   );
@@ -292,36 +258,5 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.body,
     color: COLORS.text.primary,
     padding: 0,
-  },
-
-  // ── Sort chips ──
-  sortRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: SPACING.screenPadding,
-    gap: SPACING.sm,
-    marginBottom: SPACING.md,
-  },
-  chip: {
-    paddingHorizontal: SPACING.md,
-    paddingVertical: 6,
-    borderRadius: RADIUS.chip,
-    backgroundColor: COLORS.bg.highlight,
-  },
-  chipActive: {
-    backgroundColor: COLORS.accent.muted,
-  },
-  chipText: {
-    ...TYPOGRAPHY.label,
-    color: COLORS.text.secondary,
-  },
-  chipTextActive: {
-    color: COLORS.accent.primary,
-    fontWeight: '600',
-  },
-  trackCount: {
-    ...TYPOGRAPHY.label,
-    color: COLORS.text.tertiary,
-    marginLeft: 'auto',
   },
 });

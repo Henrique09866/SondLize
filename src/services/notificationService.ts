@@ -1,30 +1,14 @@
 import * as Notifications from 'expo-notifications';
-import { Platform } from 'react-native';
 
 /**
- * Configura o comportamento das notificações quando o app está em foreground.
- * Removido para evitar notificações fantasmas em foreground.
- */
-// Notifications.setNotificationHandler({
-//   handleNotification: async () => ({
-//     shouldShowAlert: false, // RNTP já exibe a notificação de mídia nativa
-//     shouldPlaySound: false,
-//     shouldSetBadge: false,
-//     shouldShowBanner: false,
-//     shouldShowList: false,
-//   }),
-// });
-
-/**
- * Solicita permissão de notificação (obrigatório Android 13+ / API 33+)
- * e cria o canal "playback" no Android.
+ * Solicita permissão de notificação (obrigatório Android 13+ / API 33+).
+ *
+ * A notificação de mídia em si (com botões de ícones e capa) é gerenciada
+ * nativamente pelo @rntp/player (MediaSession), não pelo expo-notifications.
  *
  * Deve ser chamada UMA vez na inicialização do app (App.tsx).
  */
 export async function setupNotifications(): Promise<boolean> {
-  // Canal "playback" removido para não gerar notificação fantasma
-
-  // Solicitar permissão (Android 13+ exige isso — sem isso, nenhuma notificação aparece)
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
 

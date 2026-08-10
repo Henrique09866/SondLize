@@ -1,62 +1,71 @@
-/*
 import TrackPlayer, {
-  AppKilledPlaybackBehavior,
-  Capability,
-  Event,
+  PlayerCommand,
   RepeatMode,
-} from 'react-native-track-player';
+  type MediaItem,
+} from '@rntp/player';
+import { Track } from './entities';
 
-export async function setupPlayer() {
-  let isSetup = false;
+let playerReady = false;
+
+/**
+ * Inicializa o player nativo (MediaSession) uma única vez.
+ *
+ * A notificação de mídia com controles de ícones (play/pause/anterior/próxima)
+ * e capa da música é gerenciada nativamente pelo Android/iOS — igual ao Spotify.
+ */
+export async function setupTrackPlayer(): Promise<void> {
+  if (playerReady) return;
+
   try {
-    const currentState = await TrackPlayer.getPlaybackState();
-    isSetup = currentState !== undefined;
-  } catch {
-    isSetup = false;
-  }
-
-  if (!isSetup) {
-    await TrackPlayer.setupPlayer();
-    await TrackPlayer.updateOptions({
-      android: {
-        appKilledPlaybackBehavior: AppKilledPlaybackBehavior.ContinuePlayback,
+    TrackPlayer.setupPlayer({
+      contentType: 'music',
+      handleAudioBecomingNoisy: true,
+      progressSync: {
+        intervalSeconds: 0.5,
       },
-      // Media controls capabilities
-      capabilities: [
-        Capability.Play,
-        Capability.Pause,
-        Capability.SkipToNext,
-        Capability.SkipToPrevious,
-        Capability.SeekTo,
-      ],
-      compactCapabilities: [Capability.Play, Capability.Pause],
+      android: {
+        wakeMode: 'local',
+        notification: {
+          channelId: 'media-playback',
+          channelName: 'Reprodução de música',
+          smallIcon: 'notification_icon',
+        },
+      },
     });
+
+    TrackPlayer.setCommands({
+      capabilities: [
+        PlayerCommand.PlayPause,
+        PlayerCommand.Previous,
+        PlayerCommand.Next,
+        PlayerCommand.Seek,
+      ],
+    });
+
+    playerReady = true;
+  } catch (e) {
+    // Já inicializado (setupPlayer lança se chamado duas vezes)
+    playerReady = true;
+    console.warn('[TrackPlayer] setupPlayer já realizado ou falhou:', e);
   }
-
-  return isSetup;
 }
 
-export async function PlaybackService() {
-  TrackPlayer.addEventListener(Event.RemotePlay, () => {
-    TrackPlayer.play();
-  });
+export const toMediaItem = (track: Track): MediaItem => ({
+  mediaId: track.id,
+  url: track.file,
+  title: track.title,
+  artist: track.artist || 'SondLize',
+  artworkUrl: track.artwork,
+  duration: track.duration / 1000,
+});
 
-  TrackPlayer.addEventListener(Event.RemotePause, () => {
-    TrackPlayer.pause();
-  });
-
-  TrackPlayer.addEventListener(Event.RemoteNext, () => {
-    TrackPlayer.skipToNext();
-  });
-
-  TrackPlayer.addEventListener(Event.RemotePrevious, () => {
-    TrackPlayer.skipToPrevious();
-  });
-
-  TrackPlayer.addEventListener(Event.RemoteSeek, (event) => {
-    if (event.position) {
-      TrackPlayer.seekTo(event.position);
-    }
-  });
-}
-*/
+export const toNativeRepeatMode = (mode: 'off' | 'all' | 'one'): RepeatMode => {
+  switch (mode) {
+    case 'one':
+      return RepeatMode.One;
+    case 'all':
+      return RepeatMode.All;
+    default:
+      return RepeatMode.Off;
+  }
+};

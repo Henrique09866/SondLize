@@ -157,6 +157,7 @@ const styles = StyleSheet.create({
     height: 120,
     alignSelf: 'center',
     marginBottom: SPACING.sm,
+    borderRadius: RADIUS.md,
   },
   title: {
     ...TYPOGRAPHY.display,

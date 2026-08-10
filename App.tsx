@@ -4,6 +4,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AppNavigator } from './src/navigation/AppNavigator';
 import { usePlayerStore } from './src/store/usePlayerStore';
 import { useLibraryStore } from './src/store/useLibraryStore';
+import { useFoldersStore } from './src/store/useFoldersStore';
 import { setupNotifications } from './src/services/notificationService';
 
 export default function App() {
@@ -14,18 +15,20 @@ export default function App() {
     async function initTrackPlayer() {
       if (isInitialized) return;
       try {
-        usePlayerStore.getState().initListeners();
+        await usePlayerStore.getState().initListeners();
         isInitialized = true;
       } catch (e: any) {
-        console.error('Erro ao configurar AudioService:', e);
+        console.error('Erro ao configurar o player:', e);
       }
     }
 
     async function setupApp() {
       try {
         await setupNotifications();
+
         useLibraryStore.getState().loadTracks();
-        
+        useFoldersStore.getState().load();
+
         // Android requires foreground to setup TrackPlayer
         if (AppState.currentState === 'active') {
           await initTrackPlayer();
