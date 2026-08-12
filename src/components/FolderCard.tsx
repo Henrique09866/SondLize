@@ -15,6 +15,7 @@ import {
   SHADOWS,
   hexToRgba,
   contrastText,
+  darken,
 } from '../constants/theme';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -24,6 +25,7 @@ export interface FolderCardProps {
   color: string;           // hex from COLORS.folders palette
   trackCount: number;
   artworks?: (string | null)[]; // up to 4 cover URIs for collage
+  artwork?: string | null;     // custom folder photo (overrides collage)
   onPress: () => void;
   onLongPress?: () => void;
 }
@@ -39,7 +41,7 @@ const ArtworkCollage: React.FC<{
 
   if (!hasAny) {
     return (
-      <View style={[styles.collageSingle, { backgroundColor: hexToRgba(color, 0.3) }]}>
+      <View style={[styles.collageSingle, { backgroundColor: darken(color, 0.45) }]}>
         <Text style={[styles.collageIcon, { color }]}>♪</Text>
       </View>
     );
@@ -49,7 +51,7 @@ const ArtworkCollage: React.FC<{
     return filled[0] ? (
       <Image source={{ uri: filled[0]! }} style={styles.collageSingle} />
     ) : (
-      <View style={[styles.collageSingle, { backgroundColor: hexToRgba(color, 0.3) }]} />
+      <View style={[styles.collageSingle, { backgroundColor: darken(color, 0.45) }]} />
     );
   }
 
@@ -61,7 +63,7 @@ const ArtworkCollage: React.FC<{
         ) : (
           <View
             key={i}
-            style={[styles.collageCell, { backgroundColor: hexToRgba(color, 0.2) }]}
+            style={[styles.collageCell, { backgroundColor: darken(color, 0.45) }]}
           />
         )
       )}
@@ -76,6 +78,7 @@ export const FolderCard: React.FC<FolderCardProps> = ({
   color,
   trackCount,
   artworks = [],
+  artwork,
   onPress,
   onLongPress,
 }) => {
@@ -110,12 +113,16 @@ export const FolderCard: React.FC<FolderCardProps> = ({
         activeOpacity={1}
         style={styles.card}
       >
-        {/* Color accent strip at top */}
-        <View style={[styles.colorStrip, { backgroundColor: color }]} />
+        {/* Color accent strip at top (hidden when folder has its own photo) */}
+        {!artwork && <View style={[styles.colorStrip, { backgroundColor: color }]} />}
 
-        {/* Artwork collage */}
+        {/* Artwork collage / folder photo */}
         <View style={styles.collageContainer}>
-          <ArtworkCollage artworks={artworks} color={color} />
+          {artwork ? (
+            <Image source={{ uri: artwork }} style={styles.collageSingle} />
+          ) : (
+            <ArtworkCollage artworks={artworks} color={color} />
+          )}
         </View>
 
         {/* Footer */}

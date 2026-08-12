@@ -5,3 +5,5 @@ export { FoldersScreen } from './FoldersScreen';
 export { FolderDetailsScreen } from './FolderDetailsScreen';
 export { PlaylistDetailsScreen } from './PlaylistDetailsScreen';
 export { PlaylistsScreen } from './PlaylistsScreen';
+export { ProfileScreen } from './ProfileScreen';
+export { SettingsScreen } from './SettingsScreen';

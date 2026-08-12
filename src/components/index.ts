@@ -6,3 +6,5 @@ export { PrimaryButton } from './PrimaryButton';
 export { ScreenContainer } from './ScreenContainer';
 export { CreateFolderModal } from './CreateFolderModal';
 export { SelectFolderModal } from './SelectFolderModal';
+export { UserAvatar } from './UserAvatar';
+export { AvatarCropModal } from './AvatarCropModal';

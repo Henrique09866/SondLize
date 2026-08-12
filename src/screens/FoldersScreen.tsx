@@ -71,6 +71,7 @@ export const FoldersScreen: React.FC = () => {
             color={item.color}
             trackCount={count}
             artworks={artworks}
+            artwork={item.artwork}
             onPress={() =>
               navigation.navigate('FolderDetails', { folderId: item.id, folderName: item.name })
             }

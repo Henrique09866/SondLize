@@ -1,7 +1,13 @@
 import { create } from 'zustand';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { documentDirectory, makeDirectoryAsync, copyAsync, deleteAsync } from 'expo-file-system/legacy';
+import {
+  documentDirectory,
+  makeDirectoryAsync,
+  copyAsync,
+  deleteAsync,
+  readDirectoryAsync,
+} from 'expo-file-system/legacy';
 import { Audio } from 'expo-av';
 import { ref, uploadBytes, deleteObject } from 'firebase/storage';
 import {
@@ -26,6 +32,7 @@ interface LibraryState {
   importMusic: () => Promise<void>;
   deleteTrack: (id: string) => Promise<void>;
   updateTrackFolder: (trackId: string, folderId: string | undefined) => Promise<void>;
+  rescanMusic: () => Promise<number>;
 }
 
 const STORAGE_KEY = '@sondlize:library';
@@ -52,6 +59,16 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
   loadTracks: async () => {
     try {
+      // Lê o cache local antes de qualquer sync, para nunca perdê-lo
+      // para um resultado vindo da nuvem vazio.
+      let local: Track[] = [];
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        local = raw ? JSON.parse(raw) : [];
+      } catch {
+        local = [];
+      }
+
       const user = auth.currentUser;
 
       if (user) {
@@ -60,16 +77,24 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           orderBy('createdAt', 'asc')
         );
         const snapshot = await getDocs(q);
-        const tracks: Track[] = [];
+        const remote: Track[] = [];
         snapshot.forEach((doc) => {
-          tracks.push(doc.data() as Track);
+          remote.push(doc.data() as Track);
         });
-        set({ tracks, isLoaded: true });
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(tracks));
+
+        // FIX: bug de perda de dados — se o Firebase voltar vazio mas o aparelho
+        // tiver músicas locais (ex.: upload em background falhou), NÃO sobrescreve
+        // a biblioteca local com a lista vazia.
+        if (remote.length === 0 && local.length > 0) {
+          console.warn('[loadTracks] Firebase vazio; mantendo biblioteca local.');
+          set({ tracks: local, isLoaded: true });
+          return;
+        }
+
+        set({ tracks: remote, isLoaded: true });
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
       } else {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        const tracks: Track[] = raw ? JSON.parse(raw) : [];
-        set({ tracks, isLoaded: true });
+        set({ tracks: local, isLoaded: true });
       }
     } catch {
       try {
@@ -144,13 +169,14 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         (async () => {
           console.log('[Background Upload] Iniciando upload em segundo plano de', newTracks.length, 'músicas');
           for (let i = 0; i < result.assets.length; i++) {
-            const file = result.assets[i];
             const track = newTracks[i];
             try {
               console.log(`[Background Upload] Enviando para o Firebase: "${track.title}" (${track.file})`);
               const response = await fetch(track.file);
               const blob = await response.blob();
-              const safeName = `${Date.now()}_${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+              // Usa o mesmo nome do arquivo local para que o deleteTrack()
+              // consiga apagar o arquivo do Storage com track.file.split('/').pop().
+              const safeName = track.file.split('/').pop() || '';
               const storageRef = ref(storage, `users/${user.uid}/tracks/${safeName}`);
               await uploadBytes(storageRef, blob);
 
@@ -222,5 +248,85 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         console.warn('Firestore update failed:', e);
       }
     }
-  }
+  },
+
+  rescanMusic: async () => {
+    set({ isLoading: true, error: null });
+
+    try {
+      const permDir = `${documentDirectory}SondLizeMusic/`;
+      let files: string[] = [];
+      try {
+        files = await readDirectoryAsync(permDir);
+      } catch {
+        // Pasta não existe ainda — nada a recuperar.
+        files = [];
+      }
+
+      const AUDIO_EXTS = ['mp3', 'm4a', 'wav', 'aac', 'ogg', 'flac', 'opus', 'mp4'];
+      const existingPaths = new Set(get().tracks.map((t) => t.file));
+      const recovered: Track[] = [];
+
+      for (const name of files) {
+        const ext = name.split('.').pop()?.toLowerCase() ?? '';
+        if (!AUDIO_EXTS.includes(ext)) continue;
+
+        const fileUri = `${permDir}${name}`;
+        if (existingPaths.has(fileUri)) continue; // já está na biblioteca
+
+        const metadata = await extractMetadata(fileUri);
+        const duration = await getTrackDuration(fileUri);
+
+        const title = metadata.title || name.replace(/\.[^/.]+$/, '');
+        const artist = metadata.artist || 'Offline';
+
+        recovered.push({
+          id: Date.now().toString() + Math.random().toString(36).substring(7),
+          title,
+          artist,
+          duration,
+          file: fileUri,
+          folderId: undefined,
+          artwork: metadata.artwork,
+          createdAt: Date.now(),
+        });
+      }
+
+      set({ isLoading: false });
+
+      if (recovered.length === 0) return 0;
+
+      const updatedTracks = [...get().tracks, ...recovered];
+      set({ tracks: updatedTracks });
+      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTracks));
+
+      // Sobe as músicas recuperadas para o Firebase em segundo plano,
+      // igual ao fluxo de importação.
+      const user = auth.currentUser;
+      if (user) {
+        (async () => {
+          for (const track of recovered) {
+            try {
+              const response = await fetch(track.file);
+              const blob = await response.blob();
+              const safeName = track.file.split('/').pop() || '';
+              const storageRef = ref(storage, `users/${user.uid}/tracks/${safeName}`);
+              await uploadBytes(storageRef, blob);
+
+              const trackRef = doc(db, 'users', user.uid, 'tracks', track.id);
+              await setDoc(trackRef, track);
+            } catch (e) {
+              console.warn(`[Rescan] Falha no upload de "${track.title}":`, e);
+            }
+          }
+        })();
+      }
+
+      return recovered.length;
+    } catch (e: any) {
+      console.error('Rescan error:', e);
+      set({ error: e?.message ?? 'Erro ao recuperar músicas.', isLoading: false });
+      return 0;
+    }
+  },
 }));

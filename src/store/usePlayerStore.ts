@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { AppState } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import TrackPlayer, { Event, PlaybackState } from '@rntp/player';
 import {
   setupTrackPlayer,
@@ -31,6 +32,12 @@ interface PlayerState {
   sleepTimerEnd: number | null;
   setSleepTimer: (minutes: number | null) => void;
 
+  // Listening stats
+  listenedSeconds: number;
+  addListenedSeconds: (seconds: number) => void;
+  loadListenedSeconds: () => Promise<void>;
+  resetListenedSeconds: () => Promise<void>;
+
   // Equalizer
   eqPreset: string;
   eqBands: number[]; // 5 bands
@@ -40,6 +47,7 @@ interface PlayerState {
   // Actions
   initListeners: () => Promise<void>;
   playQueue: (tracks: Track[], startIndex: number) => Promise<void>;
+  playQueueShuffled: (tracks: Track[]) => Promise<void>;
   skipNext: () => void;
   skipPrev: () => void;
   play: () => void;
@@ -50,6 +58,11 @@ interface PlayerState {
 }
 
 let listenersBound = false;
+
+const LISTENED_KEY = '@sondlize:listenedSeconds';
+const MAX_TICK_DELTA = 120; // segundos por tick (evita contagens absurdas)
+let lastPlaybackTick = Date.now();
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
   const findTrackByMediaId = (mediaId: string | null | undefined): Track | null =>
@@ -99,6 +112,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     TrackPlayer.addEventListener(Event.IsPlayingChanged, ({ playing }) => {
       set({ isPlaying: playing });
+      lastPlaybackTick = Date.now();
+      if (!playing) get().addListenedSeconds(0); // força persistência pendente
     });
 
     TrackPlayer.addEventListener(Event.PlaybackStateChanged, ({ state }) => {
@@ -110,6 +125,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     TrackPlayer.addEventListener(Event.PlaybackProgressUpdated, ({ position, duration }) => {
       set({ position, duration });
+
+      if (get().isPlaying) {
+        const now = Date.now();
+        const delta = (now - lastPlaybackTick) / 1000;
+        lastPlaybackTick = now;
+        if (delta > 0 && delta < MAX_TICK_DELTA) {
+          get().addListenedSeconds(delta);
+        }
+      }
     });
 
     TrackPlayer.addEventListener(Event.PlaybackError, ({ code, message }) => {
@@ -131,6 +155,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     return () => {
       appStateSub.remove();
+      if (persistTimer) clearTimeout(persistTimer);
       listenersBound = false;
     };
   };
@@ -149,8 +174,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     sleepTimerEnd: null,
     eqPreset: 'Flat',
     eqBands: [0, 0, 0, 0, 0],
+    listenedSeconds: 0,
 
     initListeners: async () => {
+      await get().loadListenedSeconds();
       await setupTrackPlayer();
       bindListeners();
       syncFromPlayer();
@@ -178,6 +205,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       TrackPlayer.setRepeatMode(toNativeRepeatMode(repeatMode));
       TrackPlayer.setShuffleEnabled(shuffleEnabled);
       TrackPlayer.play();
+    },
+
+    playQueueShuffled: async (tracks) => {
+      if (!tracks.length) return;
+
+      // Embaralha a fila em JS e toca na ordem embaralhada,
+      // evitando que o shuffle nativo embaralhe de novo por cima.
+      const shuffled = [...tracks];
+      for (let i = shuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      }
+
+      set({ shuffleEnabled: false });
+      await get().playQueue(shuffled, 0);
     },
 
     skipNext: () => {
@@ -239,6 +281,38 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         TrackPlayer.sleepAfterTime(minutes * 60, { fadeOutSeconds: 10 });
         set({ sleepTimerEnd: Date.now() + minutes * 60 * 1000 });
       }
+    },
+
+    addListenedSeconds: (seconds) => {
+      if (seconds > 0) {
+        const next = get().listenedSeconds + seconds;
+        set({ listenedSeconds: next });
+
+        if (persistTimer) clearTimeout(persistTimer);
+        persistTimer = setTimeout(() => {
+          AsyncStorage.setItem(LISTENED_KEY, String(next)).catch(() => {});
+        }, 2000);
+      } else if (persistTimer) {
+        clearTimeout(persistTimer);
+        persistTimer = setTimeout(() => {
+          AsyncStorage.setItem(LISTENED_KEY, String(get().listenedSeconds)).catch(() => {});
+        }, 0);
+      }
+    },
+
+    loadListenedSeconds: async () => {
+      try {
+        const raw = await AsyncStorage.getItem(LISTENED_KEY);
+        const value = raw ? Number(raw) : 0;
+        set({ listenedSeconds: Number.isFinite(value) ? value : 0 });
+      } catch {
+        set({ listenedSeconds: 0 });
+      }
+    },
+
+    resetListenedSeconds: async () => {
+      set({ listenedSeconds: 0 });
+      await AsyncStorage.setItem(LISTENED_KEY, '0');
     },
 
     setEqPreset: (preset, bands) => {

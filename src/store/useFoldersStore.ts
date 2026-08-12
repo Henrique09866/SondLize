@@ -8,6 +8,7 @@ import {
   deleteDoc,
   query,
   orderBy,
+  deleteField,
 } from 'firebase/firestore';
 import { Folder } from '../core/entities';
 import { auth, db } from '../services/firebase';
@@ -17,6 +18,10 @@ interface FoldersState {
   isLoaded: boolean;
   load: () => Promise<void>;
   createFolder: (name: string, color: string) => Promise<void>;
+  updateFolder: (
+    id: string,
+    updates: Partial<Pick<Folder, 'name' | 'color' | 'artwork'>>,
+  ) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
 }
 
@@ -32,6 +37,16 @@ export const useFoldersStore = create<FoldersState>((set, get) => ({
 
   load: async () => {
     try {
+      // Lê o cache local antes de qualquer sync, para nunca perdê-lo
+      // para um resultado vindo da nuvem vazio.
+      let local: Folder[] = [];
+      try {
+        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        local = raw ? JSON.parse(raw) : [];
+      } catch {
+        local = [];
+      }
+
       const user = auth.currentUser;
 
       if (user) {
@@ -40,16 +55,23 @@ export const useFoldersStore = create<FoldersState>((set, get) => ({
           orderBy('createdAt', 'asc')
         );
         const snapshot = await getDocs(q);
-        const folders: Folder[] = [];
+        const remote: Folder[] = [];
         snapshot.forEach((doc) => {
-          folders.push(doc.data() as Folder);
+          remote.push(doc.data() as Folder);
         });
-        set({ folders, isLoaded: true });
-        await persist(folders);
+
+        // FIX: bug de perda de dados — se o Firebase voltar vazio mas o aparelho
+        // tiver pastas locais, NÃO sobrescreve o cache local com a lista vazia.
+        if (remote.length === 0 && local.length > 0) {
+          console.warn('[useFoldersStore] Firebase vazio; mantendo pastas locais.');
+          set({ folders: local, isLoaded: true });
+          return;
+        }
+
+        set({ folders: remote, isLoaded: true });
+        await persist(remote);
       } else {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        const folders: Folder[] = raw ? JSON.parse(raw) : [];
-        set({ folders, isLoaded: true });
+        set({ folders: local, isLoaded: true });
       }
     } catch {
       try {
@@ -80,6 +102,28 @@ export const useFoldersStore = create<FoldersState>((set, get) => ({
         await setDoc(folderRef, newFolder);
       } catch (e) {
         console.warn('Firestore save failed:', e);
+      }
+    }
+  },
+
+  updateFolder: async (id, updates) => {
+    const folders = get().folders.map((f) =>
+      f.id === id ? { ...f, ...updates } : f,
+    );
+    set({ folders });
+    await persist(folders);
+
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        const folderRef = doc(db, 'users', user.uid, 'folders', id);
+        const payload: Record<string, unknown> = { ...updates };
+        if (updates.artwork === undefined) {
+          payload.artwork = deleteField();
+        }
+        await setDoc(folderRef, payload, { merge: true });
+      } catch (e) {
+        console.warn('Firestore update failed:', e);
       }
     }
   },

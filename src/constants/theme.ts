@@ -92,55 +92,55 @@ export const TYPOGRAPHY = {
     fontSize:   32,
     fontWeight: '700' as TextStyle['fontWeight'],
     letterSpacing: -0.8,
-    lineHeight:  38,
+    lineHeight:  44,
     color:       COLORS.text.primary,
   },
- 
+
   // H1 — screen titles
   h1: {
     fontSize:   28,
     fontWeight: '700' as TextStyle['fontWeight'],
     letterSpacing: -0.5,
-    lineHeight:  34,
+    lineHeight:  40,
     color:       COLORS.text.primary,
   },
- 
+
   // H2 — section headers
   h2: {
     fontSize:   22,
     fontWeight: '700' as TextStyle['fontWeight'],
     letterSpacing: -0.3,
-    lineHeight:  28,
+    lineHeight:  32,
     color:       COLORS.text.primary,
   },
- 
+
   // H3 — card titles, modal headers
   h3: {
     fontSize:   18,
     fontWeight: '600' as TextStyle['fontWeight'],
     letterSpacing: -0.2,
-    lineHeight:  24,
+    lineHeight:  26,
     color:       COLORS.text.primary,
   },
- 
+
   // Title — song names, playlist titles (large list items)
   titleLarge: {
     fontSize:   16,
     fontWeight: '600' as TextStyle['fontWeight'],
     letterSpacing: -0.1,
-    lineHeight:  22,
+    lineHeight:  24,
     color:       COLORS.text.primary,
   },
- 
+
   // Title — standard list items
   title: {
     fontSize:   15,
     fontWeight: '500' as TextStyle['fontWeight'],
     letterSpacing: 0,
-    lineHeight:  20,
+    lineHeight:  22,
     color:       COLORS.text.primary,
   },
- 
+
   // Body — descriptions, lyrics
   body: {
     fontSize:   14,
@@ -149,41 +149,41 @@ export const TYPOGRAPHY = {
     lineHeight:  20,
     color:       COLORS.text.secondary,
   },
- 
+
   // Caption — secondary metadata (artist, duration, count)
   caption: {
     fontSize:   13,
     fontWeight: '400' as TextStyle['fontWeight'],
     letterSpacing: 0,
-    lineHeight:  18,
+    lineHeight:  20,
     color:       COLORS.text.secondary,
   },
- 
+
   // Label — chips, badges, tab labels
   label: {
     fontSize:   12,
     fontWeight: '500' as TextStyle['fontWeight'],
     letterSpacing: 0.2,
-    lineHeight:  16,
+    lineHeight:  18,
     color:       COLORS.text.secondary,
   },
- 
+
   // Overline — section category labels (ALL CAPS feel)
   overline: {
     fontSize:   11,
     fontWeight: '600' as TextStyle['fontWeight'],
     letterSpacing: 1.2,
-    lineHeight:  14,
+    lineHeight:  16,
     color:       COLORS.text.tertiary,
     textTransform: 'uppercase' as TextStyle['textTransform'],
   },
- 
+
   // Numeric — time codes, counts, BPM
   numeric: {
     fontSize:   13,
     fontWeight: '500' as TextStyle['fontWeight'],
     letterSpacing: 0.3,
-    lineHeight:  18,
+    lineHeight:  20,
     fontVariant: ['tabular-nums'] as TextStyle['fontVariant'],
     color:       COLORS.text.tertiary,
   },
@@ -487,6 +487,19 @@ export const hexToRgba = (hex: string, alpha: number): string => {
  * Usage: folderTint(folder.color)  → 'rgba(r,g,b,0.15)'
  */
 export const folderTint = (hex: string): string => hexToRgba(hex, 0.15);
+
+/**
+ * Darkens a hex color by multiplying each channel by `factor` (0–1).
+ * Keeps the hue, just darker — used for solid folder surfaces that
+ * stay readable with light text.
+ * Usage: darken('#FF1200', 0.45)  → 'rgb(115,8,0)'
+ */
+export const darken = (hex: string, factor: number): string => {
+  const r = Math.round(parseInt(hex.slice(1, 3), 16) * factor);
+  const g = Math.round(parseInt(hex.slice(3, 5), 16) * factor);
+  const b = Math.round(parseInt(hex.slice(5, 7), 16) * factor);
+  return `rgb(${r},${g},${b})`;
+};
  
 /**
  * Picks a contrasting text color (black or white) for a given background hex.

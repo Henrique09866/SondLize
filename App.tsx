@@ -5,7 +5,7 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { usePlayerStore } from './src/store/usePlayerStore';
 import { useLibraryStore } from './src/store/useLibraryStore';
 import { useFoldersStore } from './src/store/useFoldersStore';
-import { setupNotifications } from './src/services/notificationService';
+import { setupNotifications, getNotificationsEnabled } from './src/services/notificationService';
 
 export default function App() {
   useEffect(() => {
@@ -24,7 +24,9 @@ export default function App() {
 
     async function setupApp() {
       try {
-        await setupNotifications();
+        if (await getNotificationsEnabled()) {
+          await setupNotifications();
+        }
 
         useLibraryStore.getState().loadTracks();
         useFoldersStore.getState().load();

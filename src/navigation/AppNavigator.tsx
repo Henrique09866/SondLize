@@ -30,6 +30,8 @@ import {
   FoldersScreen,
   FolderDetailsScreen,
   PlayerScreen,
+  ProfileScreen,
+  SettingsScreen,
 } from '../screens';
 import { MiniPlayer } from '../components/MiniPlayer';
 import { useAuthStore } from '../store/useAuthStore';
@@ -326,6 +328,32 @@ const AppStack: React.FC = () => (
           },
         },
         gestureDirection: 'vertical',
+        cardStyle: { backgroundColor: COLORS.bg.base },
+      }}
+    />
+
+    <Stack.Screen
+      name="Profile"
+      component={ProfileScreen}
+      options={{
+        cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+        transitionSpec: {
+          open:  TransitionSpecs.TransitionIOSSpec,
+          close: TransitionSpecs.TransitionIOSSpec,
+        },
+        cardStyle: { backgroundColor: COLORS.bg.base },
+      }}
+    />
+
+    <Stack.Screen
+      name="Settings"
+      component={SettingsScreen}
+      options={{
+        cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+        transitionSpec: {
+          open:  TransitionSpecs.TransitionIOSSpec,
+          close: TransitionSpecs.TransitionIOSSpec,
+        },
         cardStyle: { backgroundColor: COLORS.bg.base },
       }}
     />

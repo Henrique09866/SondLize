@@ -15,4 +15,16 @@ export interface Folder {
   name: string;
   color: string;
   createdAt: number;
+  artwork?: string;
+}
+
+/**
+ * Parâmetros de corte da foto de perfil (estilo Instagram).
+ * `scale` ≥ 1 (1 = preenche o círculo, > 1 = zoom).
+ * `tx`/`ty` são deslocamentos normalizados ao tamanho base ([-1, 1]).
+ */
+export interface AvatarCrop {
+  scale: number;
+  tx: number;
+  ty: number;
 }

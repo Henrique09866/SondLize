@@ -13,8 +13,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 
 import { SongListItem } from '../components/SongListItem';
+import { UserAvatar } from '../components/UserAvatar';
 import { EmptyState } from '../components/EmptyState';
 import { useLibraryStore, usePlayerStore } from '../store';
+import { useAuthStore } from '../store/useAuthStore';
 import { Track } from '../core/entities';
 import {
   COLORS,
@@ -46,6 +48,9 @@ export const LibraryScreen: React.FC = () => {
   const isPlaying    = usePlayerStore((s) => s.isPlaying);
   const playQueue    = usePlayerStore((s) => s.playQueue);
   const pause        = usePlayerStore((s) => s.pause);
+
+  const user = useAuthStore((s) => s.user);
+  const profile = useAuthStore((s) => s.profile);
 
   const [query,   setQuery]   = useState('');
   const [loading, setLoading] = useState(false);
@@ -129,7 +134,26 @@ export const LibraryScreen: React.FC = () => {
     <View>
       {/* ── Page title ── */}
       <View style={[styles.header, { paddingTop: insets.top + SPACING.md }]}>
+        <TouchableOpacity
+          onPress={() => navigation.navigate('Profile')}
+          style={styles.profileButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="button"
+          accessibilityLabel="Perfil"
+        >
+          <UserAvatar
+            photoURL={profile?.photoURL}
+            initial={(profile?.displayName || user?.email || '?')
+              .trim()
+              .charAt(0)
+              .toUpperCase()}
+            size={SIZES.avatar.md}
+            crop={profile?.crop}
+          />
+        </TouchableOpacity>
+
         <Text style={styles.pageTitle}>Sua Biblioteca</Text>
+
         <TouchableOpacity
           onPress={handleImport}
           disabled={loading}
@@ -218,9 +242,16 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: SPACING.screenPadding,
     paddingBottom: SPACING.lg,
+    gap: SPACING.md,
   },
   pageTitle: {
     ...TYPOGRAPHY.h1,
+    flex: 1,
+  },
+  profileButton: {
+    width: SIZES.avatar.md,
+    height: SIZES.avatar.md,
+    marginBottom: SPACING.xs,
   },
   importButton: {
     backgroundColor: COLORS.accent.muted,

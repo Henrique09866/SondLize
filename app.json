@@ -2,7 +2,7 @@
   "expo": {
     "name": "sondlize",
     "slug": "sondlize",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "sondlize",
@@ -56,6 +56,12 @@
           "color": "#1a1a2e",
           "defaultChannel": "playback",
           "sounds": []
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "O SondLize usa suas fotos para personalizar a capa das pastas."
         }
       ],
       "expo-font",

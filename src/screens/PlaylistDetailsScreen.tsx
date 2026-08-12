@@ -435,7 +435,7 @@ const detailStyles = StyleSheet.create({
   navbarTitle: { ...TYPOGRAPHY.title },
 
   backButton: { position: 'absolute', left: SPACING.screenPadding, zIndex: 20, width: SIZES.touchTarget, height: SIZES.touchTarget, alignItems: 'center', justifyContent: 'center' },
-  backIcon:   { fontSize: 32, color: COLORS.text.primary, lineHeight: 36, fontWeight: '300' },
+  backIcon:   { fontSize: 32, color: COLORS.text.primary, lineHeight: 40, fontWeight: '300' },
 
   hero: { alignItems: 'center', paddingTop: SPACING['3xl'], paddingBottom: SPACING.xl, paddingHorizontal: SPACING.screenPadding, gap: SPACING.sm },
   heroCover: { width: HERO_COVER, height: HERO_COVER, borderRadius: RADIUS.coverMedium, overflow: 'hidden', ...SHADOWS.md },

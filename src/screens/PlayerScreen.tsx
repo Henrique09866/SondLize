@@ -474,7 +474,7 @@ const styles = StyleSheet.create({
   chevronDown: {
     fontSize: 28,
     color: COLORS.text.primary,
-    lineHeight: 30,
+    lineHeight: 34,
     fontWeight: '300',
   },
 

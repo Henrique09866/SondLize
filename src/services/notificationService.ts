@@ -1,4 +1,7 @@
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const PREFS_KEY = '@sondlize:notificationsEnabled';
 
 /**
  * Solicita permissão de notificação (obrigatório Android 13+ / API 33+).
@@ -18,4 +21,18 @@ export async function setupNotifications(): Promise<boolean> {
   }
 
   return finalStatus === 'granted';
+}
+
+/** Preferência do usuário sobre notificações (default: habilitado). */
+export async function getNotificationsEnabled(): Promise<boolean> {
+  try {
+    const value = await AsyncStorage.getItem(PREFS_KEY);
+    return value !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+export async function setNotificationsEnabled(enabled: boolean): Promise<void> {
+  await AsyncStorage.setItem(PREFS_KEY, String(enabled));
 }

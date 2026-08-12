@@ -7,9 +7,13 @@ import {
   StyleSheet,
   StatusBar,
   Animated,
+  Alert,
+  ImageBackground,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 
 import { SongListItem } from '../components/SongListItem';
 import { EmptyState } from '../components/EmptyState';
@@ -17,6 +21,7 @@ import { useFoldersStore } from '../store';
 import { useLibraryStore } from '../store';
 import { usePlayerStore } from '../store';
 import { Track } from '../core/entities';
+import { saveFolderArtwork, deleteFolderArtwork } from '../utils/folderArtwork';
 import {
   COLORS,
   TYPOGRAPHY,
@@ -24,7 +29,7 @@ import {
   RADIUS,
   SIZES,
   hexToRgba,
-  folderTint,
+  darken,
 } from '../constants/theme';
 
 // ─── Navigation types ─────────────────────────────────────────
@@ -46,10 +51,12 @@ export const FolderDetailsScreen: React.FC = () => {
   const { folderId, folderName } = route.params;
 
   const folders      = useFoldersStore((s) => s.folders);
+  const updateFolder = useFoldersStore((s) => s.updateFolder);
   const tracks       = useLibraryStore((s) => s.tracks);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying    = usePlayerStore((s) => s.isPlaying);
   const playQueue    = usePlayerStore((s) => s.playQueue);
+  const playQueueShuffled = usePlayerStore((s) => s.playQueueShuffled);
 
   const folder = useMemo(
     () => folders.find((f) => f.id === folderId),
@@ -83,6 +90,12 @@ export const FolderDetailsScreen: React.FC = () => {
     navigation.navigate('PlayerScene');
   }, [folderTracks, playQueue, navigation]);
 
+  const handlePlayShuffled = useCallback(() => {
+    if (!folderTracks.length) return;
+    playQueueShuffled(folderTracks);
+    navigation.navigate('PlayerScene');
+  }, [folderTracks, playQueueShuffled, navigation]);
+
   const handlePlayTrack = useCallback(
     (_track: Track, index: number) => {
       playQueue(folderTracks, index);
@@ -90,6 +103,54 @@ export const FolderDetailsScreen: React.FC = () => {
     },
     [folderTracks, playQueue, navigation],
   );
+
+  // ── Folder photo (pick / replace / remove) ──
+  const pickPhoto = useCallback(async () => {
+    try {
+      const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!perm.granted) {
+        Alert.alert(
+          'Permissão negada',
+          'Permita o acesso às fotos nas configurações para escolher uma imagem.',
+        );
+        return;
+      }
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        quality: 0.8,
+      });
+      if (result.canceled || !result.assets?.length) return;
+
+      const savedUri = await saveFolderArtwork(result.assets[0].uri);
+      await updateFolder(folderId, { artwork: savedUri });
+    } catch (e) {
+      console.warn('Failed to pick folder photo:', e);
+    }
+  }, [folderId, updateFolder]);
+
+  const handleRemovePhoto = useCallback(async () => {
+    const current = folder?.artwork;
+    if (!current) return;
+    await deleteFolderArtwork(current);
+    await updateFolder(folderId, { artwork: undefined });
+  }, [folder?.artwork, folderId, updateFolder]);
+
+  const handleFolderPhoto = useCallback(() => {
+    const hasArtwork = !!folder?.artwork;
+    const buttons: any[] = [];
+    if (hasArtwork) {
+      buttons.push({ text: 'Trocar foto', onPress: () => { pickPhoto(); } });
+      buttons.push({ text: 'Remover foto', onPress: () => { handleRemovePhoto(); } });
+    } else {
+      buttons.push({ text: 'Escolher foto', onPress: () => { pickPhoto(); } });
+    }
+    buttons.push({ text: 'Cancelar', style: 'cancel' });
+    Alert.alert(
+      'Foto da pasta',
+      hasArtwork ? 'O que deseja fazer com a foto?' : 'Escolha uma imagem para esta pasta.',
+      buttons,
+    );
+  }, [folder?.artwork, pickPhoto, handleRemovePhoto]);
 
   const renderItem = useCallback(
     ({ item, index }: { item: Track; index: number }) => (
@@ -112,22 +173,47 @@ export const FolderDetailsScreen: React.FC = () => {
 
   const ListHeader = (
     <View>
-      {/* ── Color hero banner ── */}
+      {/* ── Color / photo hero banner ── */}
       <Animated.View
         style={[
           styles.heroBanner,
-          {
-            backgroundColor: folderTint(folderColor),
-            transform: [{ translateY: headerTranslate }],
-          },
+          { transform: [{ translateY: headerTranslate }] },
         ]}
       >
-        {/* Color accent line */}
-        <View style={[styles.heroAccent, { backgroundColor: folderColor }]} />
+        {folder?.artwork ? (
+          <ImageBackground
+            source={{ uri: folder.artwork }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+          >
+            <View style={styles.heroArtworkOverlay} />
+          </ImageBackground>
+        ) : (
+          <View
+            style={[
+              StyleSheet.absoluteFill,
+              { backgroundColor: darken(folderColor, 0.45) },
+            ]}
+          />
+        )}
 
         {/* Folder icon circle */}
-        <View style={[styles.folderIconCircle, { backgroundColor: hexToRgba(folderColor, 0.2) }]}>
-          <Text style={[styles.folderIconText, { color: folderColor }]}>
+        <View
+          style={[
+            styles.folderIconCircle,
+            {
+              backgroundColor: folder?.artwork
+                ? 'rgba(0,0,0,0.4)'
+                : hexToRgba(folderColor, 0.25),
+            },
+          ]}
+        >
+          <Text
+            style={[
+              styles.folderIconText,
+              { color: folder?.artwork ? COLORS.text.primary : folderColor },
+            ]}
+          >
             {folder?.name.charAt(0).toUpperCase() ?? '?'}
           </Text>
         </View>
@@ -140,15 +226,49 @@ export const FolderDetailsScreen: React.FC = () => {
           {folderTracks.length} {folderTracks.length === 1 ? 'música' : 'músicas'}
         </Text>
 
-        {/* Play all button */}
+        {/* Play buttons: normal / shuffle */}
         {folderTracks.length > 0 && (
-          <TouchableOpacity
-            onPress={handlePlayAll}
-            style={[styles.playAllButton, { backgroundColor: folderColor }]}
-          >
-            <Text style={styles.playAllText}>▶  Tocar tudo</Text>
-          </TouchableOpacity>
+          <View style={styles.playButtonsRow}>
+            <TouchableOpacity
+              onPress={handlePlayAll}
+              style={[styles.playButton, { backgroundColor: folderColor }]}
+            >
+              <Ionicons
+                name="play"
+                size={18}
+                color={COLORS.text.inverse}
+                style={styles.playButtonIcon}
+              />
+              <Text style={styles.playAllText}>Tocar tudo</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              onPress={handlePlayShuffled}
+              style={styles.shuffleButton}
+            >
+              <Ionicons
+                name="shuffle"
+                size={18}
+                color={COLORS.text.primary}
+                style={styles.playButtonIcon}
+              />
+              <Text style={styles.shuffleText}>Aleatório</Text>
+            </TouchableOpacity>
+          </View>
         )}
+
+        {/* Photo picker button */}
+        <TouchableOpacity
+          onPress={handleFolderPhoto}
+          style={styles.photoButton}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons
+            name={folder?.artwork ? 'camera' : 'camera-outline'}
+            size={18}
+            color={COLORS.text.primary}
+          />
+        </TouchableOpacity>
       </Animated.View>
 
       {/* ── Section label ── */}
@@ -259,7 +379,7 @@ const styles = StyleSheet.create({
   backIcon: {
     fontSize: 32,
     color: COLORS.text.primary,
-    lineHeight: 36,
+    lineHeight: 40,
     fontWeight: '300',
   },
 
@@ -271,12 +391,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: SPACING.sm,
   },
-  heroAccent: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 3,
+  heroArtworkOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.45)',
   },
   folderIconCircle: {
     width: 80,
@@ -298,16 +415,53 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.caption,
     color: COLORS.text.secondary,
   },
-  playAllButton: {
+  playButtonsRow: {
+    flexDirection: 'row',
+    gap: SPACING.sm,
     marginTop: SPACING.md,
-    paddingHorizontal: SPACING.xl,
+  },
+  playButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.button,
+  },
+  shuffleButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+    paddingHorizontal: SPACING.lg,
+    paddingVertical: SPACING.md,
+    borderRadius: RADIUS.button,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+  },
+  playButtonIcon: {
+    marginRight: 2,
   },
   playAllText: {
     ...TYPOGRAPHY.title,
     color: COLORS.text.inverse,
     fontWeight: '700',
+  },
+  shuffleText: {
+    ...TYPOGRAPHY.title,
+    color: COLORS.text.primary,
+    fontWeight: '700',
+  },
+
+  // ── Photo button ──
+  photoButton: {
+    position: 'absolute',
+    bottom: SPACING.md,
+    right: SPACING.md,
+    width: 38,
+    height: 38,
+    borderRadius: RADIUS.full,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // ── Section label ──

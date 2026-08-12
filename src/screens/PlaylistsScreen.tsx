@@ -180,7 +180,7 @@ const rowStyles = StyleSheet.create({
   info: { flex: 1, gap: 3 },
   name: { ...TYPOGRAPHY.titleLarge },
   count: { ...TYPOGRAPHY.caption, color: COLORS.text.secondary },
-  chevron: { fontSize: 24, color: COLORS.text.tertiary, fontWeight: '300', lineHeight: 28 },
+  chevron: { fontSize: 24, color: COLORS.text.tertiary, fontWeight: '300', lineHeight: 30 },
 });
 
 // ─── Screen ───────────────────────────────────────────────────
