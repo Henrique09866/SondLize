@@ -11,42 +11,84 @@
 
 Seu player de música offline, privado e fluido.
 
-📖 Sobre o Projeto
+## 📖 Sobre o Projeto
+
 O SondLize é um aplicativo mobile de reprodução de música offline desenvolvido em React Native. O foco principal do projeto é fornecer uma experiência de audição limpa, sem anúncios e sem dependência de internet, gerenciando arquivos de áudio locais diretamente no dispositivo do usuário.
+
+O app também sincroniza os dados do usuário com o Firebase, permitindo manter seu perfil, pastas, playlists e biblioteca na nuvem.
 
 Este projeto foi construído do zero enfrentando desafios complexos de arquitetura nativa, migração de motores de áudio e gerenciamento de estado em larga escala.
 
-🛠️ Tech Stack
-Framework: React Native (Expo SDK 54)
-Linguagem: TypeScript
-Gerenciamento de Estado: Zustand
-Navegação: React Navigation v7
-Motor de Áudio: expo-av (Arquitetura Bridgeless)
-Armazenamento Local: expo-file-system & @react-native-async-storage/async-storage
-Backend/Cloud: Firebase (Integração para sincronização de dados)
-Metadados: jsmediatags (Parse de ID3 tags de arquivos MP3/WAV)
-⚙️ Como Rodar o Projeto
-⚠️ Nota: Este projeto utiliza módulos nativos (como expo-av e expo-file-system). O uso do aplicativo padrão "Expo Go" não é compatível. É necessário gerar o build de desenvolvimento.
+## ✨ Funcionalidades
 
-Pré-requisitos:
+- Reprodução de áudio offline com fila, controle de mídia e notificações em background
+- Parse de metadados (capa, artista, título) via ID3 tags
+- Perfil com foto de perfil (com ajuste de corte) e nome
+- Pastas e playlists personalizadas
+- Letras das músicas
+- Sincronização de dados com Firebase (Auth, Firestore e Storage)
+- Suporte a Nova Arquitetura (Bridgeless)
 
-Node.js >= 18
-Android Studio & SDK configurado (Variáveis de ambiente ANDROID_HOME ativas)
-Um dispositivo físico Android (Recomendado) ou Emulador.
-Passos:
+## 🛠️ Tech Stack
 
-# 1. Clone o repositóriogit clone https://github.com/seu-usuario/sondlize.gitcd sondlize# 2. Instale as dependênciasnpm install# 3. Gere os arquivos nativosnpx expo prebuild# 4. Rode no dispositivo conectadonpx expo run:android
-🚧 Status do Desenvolvimento (WIP)
+- **Framework:** React Native (Expo SDK 54)
+- **Linguagem:** TypeScript
+- **Gerenciamento de Estado:** Zustand
+- **Navegação:** React Navigation v7
+- **Motor de Áudio:** @rntp/player (player principal) & expo-av (leitura de áudio auxiliar)
+- **Armazenamento Local:** expo-file-system & @react-native-async-storage/async-storage
+- **Backend/Cloud:** Firebase (Auth, Firestore e Storage para sincronização de dados)
+- **Metadados:** jsmediatags (Parse de ID3 tags de arquivos MP3/WAV)
+
+## ⚙️ Como Rodar o Projeto
+
+> ⚠️ **Nota:** Este projeto utiliza módulos nativos (como @rntp/player e expo-file-system). O uso do aplicativo padrão "Expo Go" não é compatível. É necessário gerar um build de desenvolvimento.
+
+### Pré-requisitos
+
+- Node.js >= 18
+- Android Studio & SDK configurado (variáveis de ambiente `ANDROID_HOME` ativas)
+- Um dispositivo físico Android (recomendado) ou emulador
+
+### Passos
+
+```bash
+# 1. Clone o repositório
+git clone https://github.com/Henrique09866/SondLize.git
+cd sondlize
+
+# 2. Instale as dependências
+npm install
+
+# 3. Gere os arquivos nativos
+npx expo prebuild
+
+# 4. Rode no dispositivo conectado
+npx expo run:android
+```
+
+### Gerando o APK
+
+Para gerar um APK instalável via build na nuvem (EAS):
+
+```bash
+eas build -p android --profile preview
+```
+
+## 🚧 Status do Desenvolvimento (WIP)
+
 O projeto está em desenvolvimento ativo. As funcionalidades principais já foram implementadas, mas ajustes finos de UI/UX estão em andamento.
 
- Reprodução de áudio offline
- Parse de metadados (Capa, Artista, Título)
- Gerenciamento de fila de reprodução
- Suporte a Nova Arquitetura (Bridgeless)
- Copiagem segura de arquivos temporários para armazenamento permanente
- Refatoração dos controles da UI do Player
- Implementação de notificações de mídia interativas em background
- Sistema de equalização
- 
-📝 Licença
+- [x] Reprodução de áudio offline
+- [x] Parse de metadados (capa, artista, título)
+- [x] Gerenciamento de fila de reprodução
+- [x] Suporte a Nova Arquitetura (Bridgeless)
+- [x] Copiagem segura de arquivos temporários para armazenamento permanente
+- [x] Refatoração dos controles da UI do Player
+- [x] Implementação de notificações de mídia interativas em background
+- [x] Perfil com foto e nome
+- [ ] Sistema de equalização
+
+## 📝 Licença
+
 Este projeto é de uso pessoal e educacional.
