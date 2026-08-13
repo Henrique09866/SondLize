@@ -1,7 +1,8 @@
 import { initializeApp } from 'firebase/app';
 import {
   initializeAuth,
-  Persistence,
+  // @ts-expect-error só exportado no build React Native do SDK
+  getReactNativePersistence,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -23,44 +24,9 @@ const firebaseConfig = {
 };
 
 // Persistência local para React Native baseada no AsyncStorage.
-// O build RN do Firebase Auth espera uma classe com os métodos "_*" abaixo.
-const RN_STORAGE_AVAILABLE_KEY = '__sak';
-
-class AsyncStoragePersistence implements Persistence {
-  static type = 'LOCAL' as const;
-  readonly type = 'LOCAL' as const;
-
-  async _isAvailable(): Promise<boolean> {
-    try {
-      await AsyncStorage.setItem(RN_STORAGE_AVAILABLE_KEY, '1');
-      await AsyncStorage.removeItem(RN_STORAGE_AVAILABLE_KEY);
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  _set(key: string, value: any): Promise<void> {
-    return AsyncStorage.setItem(key, JSON.stringify(value));
-  }
-
-  async _get<T>(key: string): Promise<T | null> {
-    const json = await AsyncStorage.getItem(key);
-    return json ? (JSON.parse(json) as T) : null;
-  }
-
-  _remove(key: string): Promise<void> {
-    return AsyncStorage.removeItem(key);
-  }
-
-  _addListener(_key: string, _listener: (value: unknown) => void): void {}
-
-  _removeListener(_key: string, _listener: (value: unknown) => void): void {}
-}
-
 const app = initializeApp(firebaseConfig);
 const auth = initializeAuth(app, {
-  persistence: AsyncStoragePersistence,
+  persistence: getReactNativePersistence(AsyncStorage),
 });
 const db = getFirestore(app);
 const storage = getStorage(app);
