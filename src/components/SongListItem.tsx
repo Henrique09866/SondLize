@@ -139,6 +139,16 @@ export const SongListItem: React.FC<SongListItemProps> = ({
   rightAction,
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
+  const appear = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.timing(appear, {
+      toValue: 1,
+      duration: 260,
+      delay: Math.min((index ?? 0) * 18, 180),
+      useNativeDriver: true,
+    }).start();
+  }, [appear, index]);
 
   const handlePressIn = useCallback(() => {
     Animated.spring(scale, {
@@ -158,8 +168,18 @@ export const SongListItem: React.FC<SongListItemProps> = ({
     }).start();
   }, []);
 
+  const translateY = appear.interpolate({
+    inputRange: [0, 1],
+    outputRange: [10, 0],
+  });
+
   return (
-    <Animated.View style={{ transform: [{ scale }] }}>
+    <Animated.View
+      style={{
+        opacity: appear,
+        transform: [{ translateY }, { scale }],
+      }}
+    >
       <TouchableOpacity
         onPress={onPress}
         onLongPress={onLongPress}
@@ -322,4 +342,3 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
 });
-

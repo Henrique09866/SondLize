@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { usePlaylistsStore, Playlist } from '../store';
 import { useLibraryStore } from '../store';
@@ -149,7 +150,7 @@ const PlaylistRow: React.FC<{
             <Image source={{ uri: coverUri }} style={rowStyles.coverImage} />
           ) : (
             <View style={rowStyles.coverFallback}>
-              <Text style={rowStyles.coverIcon}>♫</Text>
+              <Ionicons name="musical-notes" size={26} color={COLORS.text.tertiary} />
             </View>
           )}
         </View>
@@ -161,7 +162,7 @@ const PlaylistRow: React.FC<{
           </Text>
         </View>
 
-        <Text style={rowStyles.chevron}>›</Text>
+        <Ionicons name="chevron-forward" size={22} color={COLORS.text.tertiary} />
       </TouchableOpacity>
     </Animated.View>
   );
@@ -176,11 +177,9 @@ const rowStyles = StyleSheet.create({
   cover: { width: SIZES.cover.lg, height: SIZES.cover.lg, borderRadius: RADIUS.coverMedium, overflow: 'hidden', marginRight: SPACING.md, flexShrink: 0 },
   coverImage: { width: '100%', height: '100%' },
   coverFallback: { flex: 1, backgroundColor: COLORS.bg.highlight, alignItems: 'center', justifyContent: 'center' },
-  coverIcon: { fontSize: 28, color: COLORS.text.tertiary },
   info: { flex: 1, gap: 3 },
   name: { ...TYPOGRAPHY.titleLarge },
   count: { ...TYPOGRAPHY.caption, color: COLORS.text.secondary },
-  chevron: { fontSize: 24, color: COLORS.text.tertiary, fontWeight: '300', lineHeight: 30 },
 });
 
 // ─── Screen ───────────────────────────────────────────────────
@@ -234,7 +233,10 @@ export const PlaylistsScreen: React.FC = () => {
         onPress={() => setShowCreate(true)}
         style={styles.createButton}
       >
-        <Text style={styles.createButtonText}>+ Nova</Text>
+        <View style={styles.buttonContent}>
+          <Ionicons name="add" size={18} color={COLORS.accent.primary} />
+          <Text style={styles.createButtonText}>Nova</Text>
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -250,7 +252,7 @@ export const PlaylistsScreen: React.FC = () => {
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
           <EmptyState
-            icon="🎶"
+            icon="list-outline"
             title="Nenhuma playlist ainda"
             subtitle='Toque em "+ Nova" para criar sua primeira playlist'
           />
@@ -291,4 +293,5 @@ const styles = StyleSheet.create({
   pageTitle:         { ...TYPOGRAPHY.h1 },
   createButton:      { backgroundColor: COLORS.accent.muted, paddingHorizontal: SPACING.md, paddingVertical: SPACING.sm, borderRadius: RADIUS.chip },
   createButtonText:  { ...TYPOGRAPHY.label, color: COLORS.accent.primary, fontWeight: '600' },
+  buttonContent:     { flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
 });

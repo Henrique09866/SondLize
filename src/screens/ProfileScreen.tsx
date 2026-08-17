@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 
 import { UserAvatar } from '../components/UserAvatar';
 import { AvatarCropModal } from '../components/AvatarCropModal';
@@ -141,7 +142,7 @@ export const ProfileScreen: React.FC = () => {
         style={[styles.backButton, { top: insets.top + SPACING.sm }]}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={styles.backIcon}>‹</Text>
+        <Ionicons name="chevron-back" size={30} color={COLORS.text.primary} />
       </TouchableOpacity>
 
       <View style={[styles.content, { paddingTop: insets.top + SPACING['2xl'] }]}>
@@ -165,7 +166,7 @@ export const ProfileScreen: React.FC = () => {
             {uploading ? (
               <ActivityIndicator size="small" color={COLORS.black} />
             ) : (
-              <Text style={styles.avatarEditIcon}>✎</Text>
+              <Ionicons name="camera" size={15} color={COLORS.black} />
             )}
           </View>
         </TouchableOpacity>
@@ -207,13 +208,13 @@ export const ProfileScreen: React.FC = () => {
           style={styles.settingsRow}
         >
           <View style={styles.settingsIconCircle}>
-            <Text style={styles.settingsIcon}>⚙</Text>
+            <Ionicons name="settings-outline" size={20} color={COLORS.accent.primary} />
           </View>
           <View style={styles.settingsInfo}>
             <Text style={styles.settingsLabel}>Configurações</Text>
             <Text style={styles.settingsSub}>Conta, reprodução e preferências</Text>
           </View>
-          <Text style={styles.chevron}>›</Text>
+          <Ionicons name="chevron-forward" size={22} color={COLORS.text.tertiary} />
         </TouchableOpacity>
 
         {/* ── Sign out ── */}
@@ -336,12 +337,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backIcon: {
-    fontSize: 40,
-    color: COLORS.text.primary,
-    lineHeight: 48,
-    marginTop: -4,
-  },
   content: {
     flex: 1,
     paddingHorizontal: SPACING.screenPadding,
@@ -369,11 +364,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 3,
     borderColor: COLORS.bg.base,
-  },
-  avatarEditIcon: {
-    fontSize: 14,
-    color: COLORS.black,
-    fontWeight: '700',
   },
 
   // ── Info ──
@@ -442,10 +432,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  settingsIcon: {
-    fontSize: 20,
-    color: COLORS.accent.primary,
-  },
   settingsInfo: {
     flex: 1,
     gap: 2,
@@ -457,11 +443,6 @@ const styles = StyleSheet.create({
   settingsSub: {
     ...TYPOGRAPHY.caption,
     color: COLORS.text.tertiary,
-  },
-  chevron: {
-    fontSize: 24,
-    color: COLORS.text.tertiary,
-    lineHeight: 30,
   },
 
   // ── Sign out ──

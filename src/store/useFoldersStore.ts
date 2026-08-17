@@ -6,8 +6,6 @@ import {
   getDocs,
   collection,
   deleteDoc,
-  query,
-  orderBy,
   deleteField,
 } from 'firebase/firestore';
 import { Folder } from '../core/entities';
@@ -17,11 +15,12 @@ interface FoldersState {
   folders: Folder[];
   isLoaded: boolean;
   load: () => Promise<void>;
-  createFolder: (name: string, color: string) => Promise<void>;
+  createFolder: (name: string, color: string) => Promise<Folder>;
   updateFolder: (
     id: string,
     updates: Partial<Pick<Folder, 'name' | 'color' | 'artwork'>>,
   ) => Promise<void>;
+  reorderFolders: (from: number, to: number) => Promise<void>;
   deleteFolder: (id: string) => Promise<void>;
 }
 
@@ -30,6 +29,15 @@ const STORAGE_KEY = '@sondlize:folders';
 const persist = async (folders: Folder[]) => {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(folders));
 };
+
+const sortFolders = (folders: Folder[]) =>
+  [...folders].sort((a, b) => (a.sortOrder ?? a.createdAt) - (b.sortOrder ?? b.createdAt));
+
+const withSortOrder = (folders: Folder[]) =>
+  folders.map((folder, index) => ({
+    ...folder,
+    sortOrder: index,
+  }));
 
 export const useFoldersStore = create<FoldersState>((set, get) => ({
   folders: [],
@@ -50,11 +58,7 @@ export const useFoldersStore = create<FoldersState>((set, get) => ({
       const user = auth.currentUser;
 
       if (user) {
-        const q = query(
-          collection(db, 'users', user.uid, 'folders'),
-          orderBy('createdAt', 'asc')
-        );
-        const snapshot = await getDocs(q);
+        const snapshot = await getDocs(collection(db, 'users', user.uid, 'folders'));
         const remote: Folder[] = [];
         snapshot.forEach((doc) => {
           remote.push(doc.data() as Folder);
@@ -64,20 +68,21 @@ export const useFoldersStore = create<FoldersState>((set, get) => ({
         // tiver pastas locais, NÃO sobrescreve o cache local com a lista vazia.
         if (remote.length === 0 && local.length > 0) {
           console.warn('[useFoldersStore] Firebase vazio; mantendo pastas locais.');
-          set({ folders: local, isLoaded: true });
+          set({ folders: sortFolders(local), isLoaded: true });
           return;
         }
 
-        set({ folders: remote, isLoaded: true });
-        await persist(remote);
+        const sortedRemote = sortFolders(remote);
+        set({ folders: sortedRemote, isLoaded: true });
+        await persist(sortedRemote);
       } else {
-        set({ folders: local, isLoaded: true });
+        set({ folders: sortFolders(local), isLoaded: true });
       }
     } catch {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         const folders: Folder[] = raw ? JSON.parse(raw) : [];
-        set({ folders, isLoaded: true });
+        set({ folders: sortFolders(folders), isLoaded: true });
       } catch {
         set({ isLoaded: true });
       }
@@ -90,6 +95,7 @@ export const useFoldersStore = create<FoldersState>((set, get) => ({
       name,
       color,
       createdAt: Date.now(),
+      sortOrder: get().folders.length,
     };
     const folders = [...get().folders, newFolder];
     set({ folders });
@@ -102,6 +108,40 @@ export const useFoldersStore = create<FoldersState>((set, get) => ({
         await setDoc(folderRef, newFolder);
       } catch (e) {
         console.warn('Firestore save failed:', e);
+      }
+    }
+
+    return newFolder;
+  },
+
+  reorderFolders: async (from, to) => {
+    const current = get().folders;
+    if (from === to || from < 0 || to < 0 || from >= current.length || to >= current.length) {
+      return;
+    }
+
+    const next = [...current];
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    const ordered = withSortOrder(next);
+
+    set({ folders: ordered });
+    await persist(ordered);
+
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        await Promise.all(
+          ordered.map((folder) =>
+            setDoc(
+              doc(db, 'users', user.uid, 'folders', folder.id),
+              { sortOrder: folder.sortOrder },
+              { merge: true },
+            ),
+          ),
+        );
+      } catch (e) {
+        console.warn('Firestore reorder failed:', e);
       }
     }
   },

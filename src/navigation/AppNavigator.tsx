@@ -1,13 +1,12 @@
 import React, { useRef, useCallback, useEffect } from 'react';
 import {
   View,
-  Text,
   TouchableOpacity,
   Animated,
   StyleSheet,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import {
   NavigationContainer,
   DefaultTheme,
@@ -27,6 +26,9 @@ import { navigationRef } from './navigationRef';
 import {
   LoginScreen,
   LibraryScreen,
+  RecentsScreen,
+  PlaylistsScreen,
+  PlaylistDetailsScreen,
   FoldersScreen,
   FolderDetailsScreen,
   PlayerScreen,
@@ -41,9 +43,7 @@ import {
   TYPOGRAPHY,
   SPACING,
   RADIUS,
-  SHADOWS,
   SIZES,
-  OPACITY,
 } from '../constants/theme';
 
 // ─── Navigation theme ─────────────────────────────────────────
@@ -68,8 +68,8 @@ type TabRoute = {
   key: string;
   name: string;
   label: string;
-  icon: string;
-  iconActive: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconActive: keyof typeof Ionicons.glyphMap;
 };
 
 const TABS: TabRoute[] = [
@@ -77,15 +77,29 @@ const TABS: TabRoute[] = [
     key:        'Library',
     name:       'Library',
     label:      'Biblioteca',
-    icon:       '♩',
-    iconActive: '♪',
+    icon:       'library-outline',
+    iconActive: 'library',
+  },
+  {
+    key:        'Recents',
+    name:       'Recents',
+    label:      'Recentes',
+    icon:       'time-outline',
+    iconActive: 'time',
   },
   {
     key:        'Folders',
     name:       'Folders',
     label:      'Pastas',
-    icon:       '📁',
-    iconActive: '📂',
+    icon:       'folder-outline',
+    iconActive: 'folder',
+  },
+  {
+    key:        'Playlists',
+    name:       'Playlists',
+    label:      'Playlists',
+    icon:       'list-outline',
+    iconActive: 'list',
   },
 ];
 
@@ -99,9 +113,7 @@ const TabButton: React.FC<{
 }> = ({ tab, isFocused, onPress, onLongPress }) => {
   const scale      = useRef(new Animated.Value(1)).current;
   const labelWidth = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
-  const iconColor  = useRef(
-    new Animated.Value(isFocused ? 1 : 0),
-  ).current;
+  const focusAnim  = useRef(new Animated.Value(isFocused ? 1 : 0)).current;
 
   React.useEffect(() => {
     Animated.parallel([
@@ -111,13 +123,14 @@ const TabButton: React.FC<{
         friction: 12,
         useNativeDriver: false,
       }),
-      Animated.timing(iconColor, {
+      Animated.spring(focusAnim, {
         toValue: isFocused ? 1 : 0,
-        duration: 200,
-        useNativeDriver: false,
+        tension: 90,
+        friction: 12,
+        useNativeDriver: true,
       }),
     ]).start();
-  }, [isFocused]);
+  }, [focusAnim, isFocused, labelWidth]);
 
   const handlePressIn = useCallback(() => {
     Animated.spring(scale, {
@@ -126,7 +139,7 @@ const TabButton: React.FC<{
       friction: 10,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [scale]);
 
   const handlePressOut = useCallback(() => {
     Animated.spring(scale, {
@@ -135,12 +148,7 @@ const TabButton: React.FC<{
       friction: 10,
       useNativeDriver: true,
     }).start();
-  }, []);
-
-  const animatedColor = iconColor.interpolate({
-    inputRange:  [0, 1],
-    outputRange: [COLORS.text.tertiary, COLORS.accent.primary],
-  });
+  }, [scale]);
 
   const maxLabelWidth = labelWidth.interpolate({
     inputRange:  [0, 1],
@@ -150,6 +158,14 @@ const TabButton: React.FC<{
   const labelOpacity = labelWidth.interpolate({
     inputRange:  [0, 0.5, 1],
     outputRange: [0, 0, 1],
+  });
+  const iconScale = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.1],
+  });
+  const iconTranslateY = focusAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -1],
   });
 
   return (
@@ -175,11 +191,13 @@ const TabButton: React.FC<{
           },
         ]}
       >
-        <Animated.Text
-          style={[styles.tabIcon, { color: animatedColor }]}
-        >
-          {isFocused ? tab.iconActive : tab.icon}
-        </Animated.Text>
+        <Animated.View style={{ transform: [{ translateY: iconTranslateY }, { scale: iconScale }] }}>
+          <Ionicons
+            name={isFocused ? tab.iconActive : tab.icon}
+            size={SIZES.tabBar.iconSize}
+            color={isFocused ? COLORS.accent.primary : COLORS.text.tertiary}
+          />
+        </Animated.View>
 
         <Animated.View
           style={{ maxWidth: maxLabelWidth, overflow: 'hidden' }}
@@ -280,7 +298,9 @@ const MainTabs: React.FC = () => (
     screenOptions={{ headerShown: false }}
   >
     <Tab.Screen name="Library" component={LibraryScreen} />
+    <Tab.Screen name="Recents" component={RecentsScreen} />
     <Tab.Screen name="Folders" component={FoldersScreen} />
+    <Tab.Screen name="Playlists" component={PlaylistsScreen} />
   </Tab.Navigator>
 );
 
@@ -303,6 +323,18 @@ const AppStack: React.FC = () => (
     <Stack.Screen
       name="FolderDetails"
       component={FolderDetailsScreen}
+      options={{
+        cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
+        transitionSpec: {
+          open:  TransitionSpecs.TransitionIOSSpec,
+          close: TransitionSpecs.TransitionIOSSpec,
+        },
+      }}
+    />
+
+    <Stack.Screen
+      name="PlaylistDetails"
+      component={PlaylistDetailsScreen}
       options={{
         cardStyleInterpolator: CardStyleInterpolators.forHorizontalIOS,
         transitionSpec: {
@@ -431,11 +463,6 @@ const styles = StyleSheet.create({
     borderRadius: RADIUS.chip,
     gap: SPACING.xs,
     minWidth: SIZES.touchTarget,
-  },
-
-  tabIcon: {
-    fontSize: SIZES.tabBar.iconSize,
-    lineHeight: SIZES.tabBar.iconSize + 4,
   },
 
   tabLabel: {

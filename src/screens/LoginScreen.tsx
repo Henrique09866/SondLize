@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Animated,
   Image,
   KeyboardAvoidingView,
   Platform,
@@ -15,12 +16,31 @@ import { COLORS, RADIUS, SIZES, SPACING, TYPOGRAPHY } from '../constants/theme';
 import { useAuthStore } from '../store/useAuthStore';
 
 export const LoginScreen: React.FC = () => {
+  const intro = useRef(new Animated.Value(0)).current;
   const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const { signIn, signUp } = useAuthStore();
+
+  React.useEffect(() => {
+    Animated.spring(intro, {
+      toValue: 1,
+      tension: 55,
+      friction: 12,
+      useNativeDriver: true,
+    }).start();
+  }, [intro]);
+
+  const logoScale = intro.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.9, 1],
+  });
+  const logoTranslate = intro.interpolate({
+    inputRange: [0, 1],
+    outputRange: [18, 0],
+  });
 
   const handleSubmit = async () => {
     if (!email.trim() || !password.trim()) {
@@ -68,14 +88,28 @@ export const LoginScreen: React.FC = () => {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <View style={styles.content}>
-        <Image
-          source={require('../../assets/images/sondlize-logo.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
-        <Text style={styles.subtitle}>
-          {isSignUp ? 'Criar conta' : 'Entrar'}
-        </Text>
+        <Animated.View
+          style={[
+            styles.brandBlock,
+            {
+              opacity: intro,
+              transform: [{ translateY: logoTranslate }, { scale: logoScale }],
+            },
+          ]}
+        >
+          <View style={styles.logoGlow} />
+          <View style={styles.logoFrame}>
+            <Image
+              source={require('../../assets/images/sondlize-logo.png')}
+              style={styles.logo}
+              resizeMode="cover"
+            />
+          </View>
+          <Text style={styles.brandName}>SondLize</Text>
+          <Text style={styles.subtitle}>
+            {isSignUp ? 'Crie sua conta offline' : 'Entre para ouvir suas músicas'}
+          </Text>
+        </Animated.View>
 
         <TextInput
           style={styles.input}
@@ -152,23 +186,44 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.xl,
     gap: SPACING.md,
   },
+  brandBlock: {
+    alignItems: 'center',
+    marginBottom: SPACING.lg,
+  },
+  logoGlow: {
+    position: 'absolute',
+    top: 8,
+    width: 132,
+    height: 132,
+    borderRadius: 66,
+    backgroundColor: COLORS.accent.glow,
+    transform: [{ scale: 1.25 }],
+  },
+  logoFrame: {
+    width: 118,
+    height: 118,
+    borderRadius: 59,
+    padding: 8,
+    backgroundColor: COLORS.bg.surface,
+    borderWidth: 1,
+    borderColor: COLORS.border.strong,
+    overflow: 'hidden',
+  },
   logo: {
     width: '100%',
-    height: 120,
-    alignSelf: 'center',
-    marginBottom: SPACING.sm,
-    borderRadius: RADIUS.md,
+    height: '100%',
+    borderRadius: 51,
   },
-  title: {
+  brandName: {
     ...TYPOGRAPHY.display,
-    color: COLORS.accent.primary,
     textAlign: 'center',
-    marginBottom: SPACING.sm,
+    marginTop: SPACING.md,
   },
   subtitle: {
-    ...TYPOGRAPHY.h2,
+    ...TYPOGRAPHY.body,
+    color: COLORS.text.secondary,
     textAlign: 'center',
-    marginBottom: SPACING.lg,
+    marginTop: SPACING.xs,
   },
   input: {
     ...TYPOGRAPHY.body,

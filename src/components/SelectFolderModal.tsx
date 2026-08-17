@@ -18,6 +18,9 @@ interface SelectFolderModalProps {
   onClose: () => void;
   onSelect: (folderId: string | undefined) => void;
   currentFolderId?: string;
+  title?: string;
+  showNoFolderOption?: boolean;
+  emptyTitle?: string;
 }
 
 export const SelectFolderModal: React.FC<SelectFolderModalProps> = ({
@@ -25,6 +28,9 @@ export const SelectFolderModal: React.FC<SelectFolderModalProps> = ({
   onClose,
   onSelect,
   currentFolderId,
+  title = 'Mover para pasta',
+  showNoFolderOption = true,
+  emptyTitle = 'Nenhuma pasta criada',
 }) => {
   const { folders } = useFoldersStore();
 
@@ -43,7 +49,7 @@ export const SelectFolderModal: React.FC<SelectFolderModalProps> = ({
         
         <View style={styles.content}>
           <View style={styles.header}>
-            <Text style={styles.title}>Mover para pasta</Text>
+            <Text style={styles.title}>{title}</Text>
             <TouchableOpacity onPress={onClose} hitSlop={{ top: 10, right: 10, bottom: 10, left: 10 }}>
               <Ionicons name="close" size={24} color={COLORS.text.secondary} />
             </TouchableOpacity>
@@ -54,7 +60,12 @@ export const SelectFolderModal: React.FC<SelectFolderModalProps> = ({
             keyExtractor={(item) => item.id}
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.listContent}
-            ListHeaderComponent={
+            ListEmptyComponent={
+              <View style={styles.emptyState}>
+                <Text style={styles.emptyText}>{emptyTitle}</Text>
+              </View>
+            }
+            ListHeaderComponent={showNoFolderOption ? (
               <TouchableOpacity
                 style={[
                   styles.folderItem,
@@ -70,7 +81,7 @@ export const SelectFolderModal: React.FC<SelectFolderModalProps> = ({
                   <Ionicons name="checkmark" size={20} color={COLORS.accent.primary} />
                 )}
               </TouchableOpacity>
-            }
+            ) : null}
             renderItem={({ item }) => {
               const isSelected = item.id === currentFolderId;
               return (
@@ -150,5 +161,13 @@ const styles = StyleSheet.create({
   folderName: {
     flex: 1,
     ...TYPOGRAPHY.title,
+  },
+  emptyState: {
+    paddingVertical: SPACING.xl,
+    alignItems: 'center',
+  },
+  emptyText: {
+    ...TYPOGRAPHY.body,
+    color: COLORS.text.secondary,
   },
 });

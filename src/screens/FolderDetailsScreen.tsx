@@ -2,7 +2,6 @@ import React, { useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
   StatusBar,
@@ -53,6 +52,8 @@ export const FolderDetailsScreen: React.FC = () => {
   const folders      = useFoldersStore((s) => s.folders);
   const updateFolder = useFoldersStore((s) => s.updateFolder);
   const tracks       = useLibraryStore((s) => s.tracks);
+  const reorderFolderTracks = useLibraryStore((s) => s.reorderFolderTracks);
+  const markTrackPlayed = useLibraryStore((s) => s.markTrackPlayed);
   const currentTrack = usePlayerStore((s) => s.currentTrack);
   const isPlaying    = usePlayerStore((s) => s.isPlaying);
   const playQueue    = usePlayerStore((s) => s.playQueue);
@@ -64,12 +65,16 @@ export const FolderDetailsScreen: React.FC = () => {
   );
 
   const folderTracks = useMemo(
-    () => tracks.filter((t) => t.folderId === folderId),
+    () =>
+      tracks
+        .filter((t) => t.folderId === folderId)
+        .sort((a, b) => (a.folderSortOrder ?? a.createdAt) - (b.folderSortOrder ?? b.createdAt)),
     [tracks, folderId],
   );
 
   const folderColor = folder?.color ?? COLORS.accent.primary;
   const scrollY     = React.useRef(new Animated.Value(0)).current;
+  const [isReordering, setIsReordering] = React.useState(false);
 
   // ── Header parallax ──
   const headerOpacity = scrollY.interpolate({
@@ -86,22 +91,26 @@ export const FolderDetailsScreen: React.FC = () => {
   // ── Play all ──
   const handlePlayAll = useCallback(() => {
     if (!folderTracks.length) return;
+    markTrackPlayed(folderTracks[0].id);
     playQueue(folderTracks, 0);
     navigation.navigate('PlayerScene');
-  }, [folderTracks, playQueue, navigation]);
+  }, [folderTracks, markTrackPlayed, playQueue, navigation]);
 
   const handlePlayShuffled = useCallback(() => {
     if (!folderTracks.length) return;
+    markTrackPlayed(folderTracks[0].id);
     playQueueShuffled(folderTracks);
     navigation.navigate('PlayerScene');
-  }, [folderTracks, playQueueShuffled, navigation]);
+  }, [folderTracks, markTrackPlayed, playQueueShuffled, navigation]);
 
   const handlePlayTrack = useCallback(
-    (_track: Track, index: number) => {
+    (track: Track, index: number) => {
+      if (isReordering) return;
+      markTrackPlayed(track.id);
       playQueue(folderTracks, index);
       navigation.navigate('PlayerScene');
     },
-    [folderTracks, playQueue, navigation],
+    [folderTracks, isReordering, markTrackPlayed, playQueue, navigation],
   );
 
   // ── Folder photo (pick / replace / remove) ──
@@ -164,9 +173,41 @@ export const FolderDetailsScreen: React.FC = () => {
         index={index}
         showIndex
         onPress={() => handlePlayTrack(item, index)}
+        onLongPress={() => setIsReordering(true)}
+        rightAction={
+          isReordering ? (
+            <View style={styles.trackReorderActions}>
+              <TouchableOpacity
+                onPress={() => reorderFolderTracks(folderId, index, index - 1)}
+                disabled={index === 0}
+                style={[styles.trackReorderButton, index === 0 && styles.trackReorderButtonDisabled]}
+              >
+                <Ionicons
+                  name="chevron-up"
+                  size={18}
+                  color={index === 0 ? COLORS.text.disabled : COLORS.text.primary}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => reorderFolderTracks(folderId, index, index + 1)}
+                disabled={index === folderTracks.length - 1}
+                style={[
+                  styles.trackReorderButton,
+                  index === folderTracks.length - 1 && styles.trackReorderButtonDisabled,
+                ]}
+              >
+                <Ionicons
+                  name="chevron-down"
+                  size={18}
+                  color={index === folderTracks.length - 1 ? COLORS.text.disabled : COLORS.text.primary}
+                />
+              </TouchableOpacity>
+            </View>
+          ) : null
+        }
       />
     ),
-    [currentTrack, isPlaying, handlePlayTrack],
+    [currentTrack, folderId, folderTracks.length, handlePlayTrack, isPlaying, isReordering, reorderFolderTracks],
   );
 
   const keyExtractor = useCallback((item: Track) => item.id, []);
@@ -227,35 +268,42 @@ export const FolderDetailsScreen: React.FC = () => {
         </Text>
 
         {/* Play buttons: normal / shuffle */}
-        {folderTracks.length > 0 && (
-          <View style={styles.playButtonsRow}>
-            <TouchableOpacity
-              onPress={handlePlayAll}
-              style={[styles.playButton, { backgroundColor: folderColor }]}
-            >
-              <Ionicons
-                name="play"
-                size={18}
-                color={COLORS.text.inverse}
-                style={styles.playButtonIcon}
-              />
-              <Text style={styles.playAllText}>Tocar tudo</Text>
-            </TouchableOpacity>
+        <View style={styles.playButtonsRow}>
+          <TouchableOpacity
+            onPress={handlePlayAll}
+            disabled={folderTracks.length === 0}
+            style={[
+              styles.playButton,
+              { backgroundColor: folderColor },
+              folderTracks.length === 0 && styles.playButtonDisabled,
+            ]}
+          >
+            <Ionicons
+              name="play"
+              size={18}
+              color={COLORS.text.inverse}
+              style={styles.playButtonIcon}
+            />
+            <Text style={styles.playAllText}>Tocar tudo</Text>
+          </TouchableOpacity>
 
-            <TouchableOpacity
-              onPress={handlePlayShuffled}
-              style={styles.shuffleButton}
-            >
-              <Ionicons
-                name="shuffle"
-                size={18}
-                color={COLORS.text.primary}
-                style={styles.playButtonIcon}
-              />
-              <Text style={styles.shuffleText}>Aleatório</Text>
-            </TouchableOpacity>
-          </View>
-        )}
+          <TouchableOpacity
+            onPress={handlePlayShuffled}
+            disabled={folderTracks.length === 0}
+            style={[
+              styles.shuffleButton,
+              folderTracks.length === 0 && styles.playButtonDisabled,
+            ]}
+          >
+            <Ionicons
+              name="shuffle"
+              size={18}
+              color={COLORS.text.primary}
+              style={styles.playButtonIcon}
+            />
+            <Text style={styles.shuffleText}>Aleatório</Text>
+          </TouchableOpacity>
+        </View>
 
         {/* Photo picker button */}
         <TouchableOpacity
@@ -274,6 +322,11 @@ export const FolderDetailsScreen: React.FC = () => {
       {/* ── Section label ── */}
       <View style={styles.sectionRow}>
         <Text style={styles.sectionLabel}>MÚSICAS</Text>
+        {isReordering ? (
+          <TouchableOpacity onPress={() => setIsReordering(false)} style={styles.doneReorderButton}>
+            <Text style={styles.doneReorderText}>Concluir</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   );
@@ -301,7 +354,7 @@ export const FolderDetailsScreen: React.FC = () => {
         style={[styles.backButton, { top: insets.top + SPACING.sm }]}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={styles.backIcon}>‹</Text>
+        <Ionicons name="chevron-back" size={30} color={COLORS.text.primary} />
       </TouchableOpacity>
 
       <Animated.FlatList
@@ -311,7 +364,7 @@ export const FolderDetailsScreen: React.FC = () => {
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
           <EmptyState
-            icon="🎵"
+            icon="musical-notes-outline"
             title="Pasta vazia"
             subtitle="Mova músicas da sua biblioteca para cá"
           />
@@ -376,12 +429,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backIcon: {
-    fontSize: 32,
-    color: COLORS.text.primary,
-    lineHeight: 40,
-    fontWeight: '300',
-  },
 
   // ── Hero banner ──
   heroBanner: {
@@ -428,6 +475,9 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING.md,
     borderRadius: RADIUS.button,
   },
+  playButtonDisabled: {
+    opacity: 0.45,
+  },
   shuffleButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -469,8 +519,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: SPACING.screenPadding,
     paddingTop: SPACING.lg,
     paddingBottom: SPACING.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   sectionLabel: {
     ...TYPOGRAPHY.overline,
+  },
+  doneReorderButton: {
+    backgroundColor: COLORS.accent.muted,
+    paddingHorizontal: SPACING.md,
+    paddingVertical: SPACING.xs,
+    borderRadius: RADIUS.chip,
+  },
+  doneReorderText: {
+    ...TYPOGRAPHY.label,
+    color: COLORS.accent.primary,
+    fontWeight: '700',
+  },
+  trackReorderActions: {
+    flexDirection: 'row',
+    gap: SPACING.xs,
+  },
+  trackReorderButton: {
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.bg.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  trackReorderButtonDisabled: {
+    opacity: 0.45,
   },
 });

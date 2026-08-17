@@ -7,6 +7,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut as firebaseSignOut,
+  updateProfile,
   User,
 } from 'firebase/auth';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -22,6 +23,7 @@ const firebaseConfig = {
   appId: '1:36923020233:web:acfd72571e6d84c0ef0e18',
   measurementId: 'G-DMD6JQYET4',
 };
+const FIREBASE_STORAGE_BUCKET = firebaseConfig.storageBucket;
 
 // Persistência local para React Native baseada no AsyncStorage.
 const app = initializeApp(firebaseConfig);
@@ -36,10 +38,12 @@ export {
   auth,
   db,
   storage,
+  FIREBASE_STORAGE_BUCKET,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   firebaseSignOut as signOut,
+  updateProfile,
 };
 
 export type { User };

@@ -17,13 +17,17 @@ import { PrimaryButton } from './PrimaryButton';
 interface CreateFolderModalProps {
   visible: boolean;
   onClose: () => void;
-  onCreate: (name: string, color: string) => void;
+  onCreate: (name: string, color: string) => void | Promise<void>;
+  title?: string;
+  placeholder?: string;
 }
 
 export const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
   visible,
   onClose,
   onCreate,
+  title = 'Nova pasta',
+  placeholder = 'Nome da pasta…',
 }) => {
   const [name, setName] = useState('');
   const [selectedColor, setSelectedColor] = useState(FOLDER_COLORS[0]);
@@ -46,11 +50,11 @@ export const CreateFolderModal: React.FC<CreateFolderModalProps> = ({
         <View style={styles.sheet}>
           <View style={styles.handle} />
 
-          <Text style={styles.heading}>Nova pasta</Text>
+          <Text style={styles.heading}>{title}</Text>
 
           <TextInput
             style={styles.input}
-            placeholder="Nome da pasta…"
+            placeholder={placeholder}
             placeholderTextColor={COLORS.text.tertiary}
             value={name}
             onChangeText={setName}

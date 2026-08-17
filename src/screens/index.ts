@@ -1,5 +1,6 @@
 export { LoginScreen } from './LoginScreen';
 export { LibraryScreen } from './LibraryScreen';
+export { RecentsScreen } from './RecentsScreen';
 export { PlayerScreen } from './PlayerScreen';
 export { FoldersScreen } from './FoldersScreen';
 export { FolderDetailsScreen } from './FolderDetailsScreen';

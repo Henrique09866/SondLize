@@ -7,6 +7,7 @@ import {
   Animated,
   StyleSheet,
 } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import {
   COLORS,
   TYPOGRAPHY,
@@ -14,7 +15,6 @@ import {
   RADIUS,
   SHADOWS,
   hexToRgba,
-  contrastText,
   darken,
 } from '../constants/theme';
 
@@ -28,6 +28,11 @@ export interface FolderCardProps {
   artwork?: string | null;     // custom folder photo (overrides collage)
   onPress: () => void;
   onLongPress?: () => void;
+  isReordering?: boolean;
+  canMoveLeft?: boolean;
+  canMoveRight?: boolean;
+  onMoveLeft?: () => void;
+  onMoveRight?: () => void;
 }
 
 // ─── Artwork collage (2×2 grid inside card) ──────────────────
@@ -42,7 +47,7 @@ const ArtworkCollage: React.FC<{
   if (!hasAny) {
     return (
       <View style={[styles.collageSingle, { backgroundColor: darken(color, 0.45) }]}>
-        <Text style={[styles.collageIcon, { color }]}>♪</Text>
+        <Ionicons name="musical-note" size={44} color={color} style={styles.collageIcon} />
       </View>
     );
   }
@@ -81,9 +86,23 @@ export const FolderCard: React.FC<FolderCardProps> = ({
   artwork,
   onPress,
   onLongPress,
+  isReordering = false,
+  canMoveLeft = false,
+  canMoveRight = false,
+  onMoveLeft,
+  onMoveRight,
 }) => {
   const scale = useRef(new Animated.Value(1)).current;
-  const textColor = contrastText(color);
+  const appear = useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    Animated.spring(appear, {
+      toValue: 1,
+      tension: 55,
+      friction: 12,
+      useNativeDriver: true,
+    }).start();
+  }, [appear]);
 
   const handlePressIn = useCallback(() => {
     Animated.spring(scale, {
@@ -92,7 +111,7 @@ export const FolderCard: React.FC<FolderCardProps> = ({
       friction: 12,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [scale]);
 
   const handlePressOut = useCallback(() => {
     Animated.spring(scale, {
@@ -101,18 +120,60 @@ export const FolderCard: React.FC<FolderCardProps> = ({
       friction: 12,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [scale]);
+
+  const appearScale = appear.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.94, 1],
+  });
 
   return (
-    <Animated.View style={[styles.wrapper, { transform: [{ scale }] }]}>
+    <Animated.View
+      style={[
+        styles.wrapper,
+        {
+          opacity: appear,
+          transform: [{ scale: appearScale }, { scale }],
+        },
+      ]}
+    >
       <TouchableOpacity
         onPress={onPress}
         onLongPress={onLongPress}
         onPressIn={handlePressIn}
         onPressOut={handlePressOut}
         activeOpacity={1}
-        style={styles.card}
+        style={[styles.card, isReordering && styles.cardReordering]}
       >
+        {isReordering ? (
+          <View style={styles.reorderToolbar}>
+            <TouchableOpacity
+              onPress={onMoveLeft}
+              disabled={!canMoveLeft}
+              style={[styles.reorderButton, !canMoveLeft && styles.reorderButtonDisabled]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={20}
+                color={canMoveLeft ? COLORS.text.primary : COLORS.text.disabled}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={onMoveRight}
+              disabled={!canMoveRight}
+              style={[styles.reorderButton, !canMoveRight && styles.reorderButtonDisabled]}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons
+                name="chevron-forward"
+                size={20}
+                color={canMoveRight ? COLORS.text.primary : COLORS.text.disabled}
+              />
+            </TouchableOpacity>
+          </View>
+        ) : null}
+
         {/* Color accent strip at top (hidden when folder has its own photo) */}
         {!artwork && <View style={[styles.colorStrip, { backgroundColor: color }]} />}
 
@@ -157,6 +218,31 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...SHADOWS.md,
   },
+  cardReordering: {
+    borderWidth: 1,
+    borderColor: COLORS.accent.primary,
+  },
+  reorderToolbar: {
+    position: 'absolute',
+    top: SPACING.sm,
+    right: SPACING.sm,
+    zIndex: 4,
+    flexDirection: 'row',
+    gap: SPACING.xs,
+  },
+  reorderButton: {
+    width: 34,
+    height: 34,
+    borderRadius: RADIUS.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(0,0,0,0.68)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: COLORS.border.default,
+  },
+  reorderButtonDisabled: {
+    opacity: 0.45,
+  },
 
   // ── Color strip ──
   colorStrip: {
@@ -178,7 +264,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   collageIcon: {
-    fontSize: 48,
     opacity: 0.7,
   },
   collageGrid: {

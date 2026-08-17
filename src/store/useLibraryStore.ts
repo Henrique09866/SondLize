@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Alert } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
@@ -29,13 +30,53 @@ interface LibraryState {
   isLoaded: boolean;
   error: string | null;
   loadTracks: () => Promise<void>;
-  importMusic: () => Promise<void>;
+  importMusic: () => Promise<Track[]>;
   deleteTrack: (id: string) => Promise<void>;
+  updateTrack: (trackId: string, updates: Partial<Pick<Track, 'title' | 'artist' | 'folderId' | 'folderSortOrder' | 'lastPlayedAt'>>) => Promise<void>;
+  markTrackPlayed: (trackId: string) => Promise<void>;
   updateTrackFolder: (trackId: string, folderId: string | undefined) => Promise<void>;
+  reorderFolderTracks: (folderId: string, from: number, to: number) => Promise<void>;
   rescanMusic: () => Promise<number>;
 }
 
 const STORAGE_KEY = '@sondlize:library';
+
+const persistTracks = async (tracks: Track[]) => {
+  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(tracks));
+};
+
+const getSafeLocalName = (name?: string) =>
+  name ? name.replace(/[^a-zA-Z0-9.-]/g, '_') : `track_${Date.now()}.mp3`;
+
+const getUniqueFileName = (safeName: string, usedNames: Set<string>) => {
+  let candidate = safeName;
+  let count = 1;
+  const dotIndex = safeName.lastIndexOf('.');
+  const base = dotIndex > 0 ? safeName.slice(0, dotIndex) : safeName;
+  const ext = dotIndex > 0 ? safeName.slice(dotIndex) : '';
+
+  while (usedNames.has(candidate.toLowerCase())) {
+    candidate = `${base}_${count}${ext}`;
+    count += 1;
+  }
+
+  usedNames.add(candidate.toLowerCase());
+  return candidate;
+};
+
+const confirmDuplicateImport = (count: number) =>
+  new Promise<'skip' | 'import' | 'cancel'>((resolve) => {
+    Alert.alert(
+      'Músicas duplicadas',
+      `${count} música${count === 1 ? '' : 's'} já parece${count === 1 ? '' : 'm'} estar na biblioteca.`,
+      [
+        { text: 'Cancelar', style: 'cancel', onPress: () => resolve('cancel') },
+        { text: 'Ignorar duplicadas', onPress: () => resolve('skip') },
+        { text: 'Importar mesmo', onPress: () => resolve('import') },
+      ],
+      { cancelable: true, onDismiss: () => resolve('cancel') },
+    );
+  });
 
 const getTrackDuration = async (uri: string): Promise<number> => {
   try {
@@ -119,20 +160,43 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
       if (result.canceled || !result.assets) {
         set({ isLoading: false });
-        return;
+        return [];
       }
 
       const newTracks: Track[] = [];
       const user = auth.currentUser;
+      const permDir = `${documentDirectory}SondLizeMusic/`;
+      const existingNames = new Set(
+        get().tracks
+          .map((track) => track.file.split('/').pop()?.toLowerCase())
+          .filter((name): name is string => !!name),
+      );
+      const duplicateAssets = result.assets.filter((file) =>
+        existingNames.has(getSafeLocalName(file.name).toLowerCase()),
+      );
+      const usedNames = new Set(existingNames);
+      let assetsToImport = result.assets;
 
-      for (const file of result.assets) {
+      if (duplicateAssets.length > 0) {
+        const choice = await confirmDuplicateImport(duplicateAssets.length);
+        if (choice === 'cancel') {
+          set({ isLoading: false });
+          return [];
+        }
+        if (choice === 'skip') {
+          assetsToImport = result.assets.filter(
+            (file) => !existingNames.has(getSafeLocalName(file.name).toLowerCase()),
+          );
+        }
+      }
+
+      for (const file of assetsToImport) {
         // The file is already copied to cache by DocumentPicker (copyToCacheDirectory: true)
         // We copy it to a permanent directory
-        const permDir = `${documentDirectory}SondLizeMusic/`;
         await makeDirectoryAsync(permDir, { intermediates: true });
         
         // Generate a safe file name
-        const safeNameForLocal = file.name ? file.name.replace(/[^a-zA-Z0-9.-]/g, '_') : `track_${Date.now()}.mp3`;
+        const safeNameForLocal = getUniqueFileName(getSafeLocalName(file.name), usedNames);
         const destPath = `${permDir}${safeNameForLocal}`;
         await copyAsync({ from: file.uri, to: destPath });
         
@@ -151,6 +215,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           duration,
           file: fileUri,
           folderId: undefined,
+          folderSortOrder: undefined,
           artwork: metadata.artwork,
           createdAt: Date.now(),
         };
@@ -161,14 +226,14 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       const updatedTracks = [...get().tracks, ...newTracks];
       set({ tracks: updatedTracks, isLoading: false });
 
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTracks));
+      await persistTracks(updatedTracks);
 
       // Se houver um usuário autenticado, faz o upload em segundo plano para o Firebase
       if (user) {
         // Dispara a promessa sem dar o 'await' para não travar a UI
         (async () => {
           console.log('[Background Upload] Iniciando upload em segundo plano de', newTracks.length, 'músicas');
-          for (let i = 0; i < result.assets.length; i++) {
+          for (let i = 0; i < assetsToImport.length; i++) {
             const track = newTracks[i];
             try {
               console.log(`[Background Upload] Enviando para o Firebase: "${track.title}" (${track.file})`);
@@ -190,9 +255,11 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         })();
       }
 
+      return newTracks;
     } catch (e: any) {
       console.error('Import error:', e);
       set({ error: e?.message ?? 'Erro ao importar músicas.', isLoading: false });
+      return [];
     }
   },
 
@@ -226,26 +293,91 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
       const updatedTracks = get().tracks.filter((t) => t.id !== id);
       set({ tracks: updatedTracks });
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTracks));
+      await persistTracks(updatedTracks);
     } catch (e) {
       console.warn('Failed to delete track:', e);
     }
   },
 
-  updateTrackFolder: async (trackId: string, folderId: string | undefined) => {
-    const updatedTracks = get().tracks.map(t =>
-      t.id === trackId ? { ...t, folderId } : t
+  updateTrack: async (trackId, updates) => {
+    const updatedTracks = get().tracks.map((t) =>
+      t.id === trackId ? { ...t, ...updates } : t,
     );
     set({ tracks: updatedTracks });
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTracks));
+    await persistTracks(updatedTracks);
 
     const user = auth.currentUser;
     if (user) {
       try {
         const trackRef = doc(db, 'users', user.uid, 'tracks', trackId);
-        await setDoc(trackRef, { folderId }, { merge: true });
+        await setDoc(trackRef, updates, { merge: true });
+      } catch (e) {
+        console.warn('Firestore track update failed:', e);
+      }
+    }
+  },
+
+  markTrackPlayed: async (trackId) => {
+    await get().updateTrack(trackId, { lastPlayedAt: Date.now() });
+  },
+
+  updateTrackFolder: async (trackId: string, folderId: string | undefined) => {
+    const folderTracks = get().tracks.filter((t) => t.folderId === folderId);
+    const nextOrder = folderId ? folderTracks.length : undefined;
+    const updatedTracks = get().tracks.map(t =>
+      t.id === trackId ? { ...t, folderId, folderSortOrder: nextOrder } : t
+    );
+    set({ tracks: updatedTracks });
+    await persistTracks(updatedTracks);
+
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        const trackRef = doc(db, 'users', user.uid, 'tracks', trackId);
+        await setDoc(trackRef, { folderId, folderSortOrder: nextOrder }, { merge: true });
       } catch (e) {
         console.warn('Firestore update failed:', e);
+      }
+    }
+  },
+
+  reorderFolderTracks: async (folderId, from, to) => {
+    const current = get().tracks;
+    const folderTracks = current
+      .filter((t) => t.folderId === folderId)
+      .sort((a, b) => (a.folderSortOrder ?? a.createdAt) - (b.folderSortOrder ?? b.createdAt));
+
+    if (from === to || from < 0 || to < 0 || from >= folderTracks.length || to >= folderTracks.length) {
+      return;
+    }
+
+    const reordered = [...folderTracks];
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
+    const orderById = new Map(reordered.map((track, index) => [track.id, index]));
+    const updatedTracks = current.map((track) =>
+      track.folderId === folderId
+        ? { ...track, folderSortOrder: orderById.get(track.id) ?? track.folderSortOrder }
+        : track,
+    );
+
+    set({ tracks: updatedTracks });
+    await persistTracks(updatedTracks);
+
+    const user = auth.currentUser;
+    if (user) {
+      try {
+        await Promise.all(
+          reordered.map((track, index) =>
+            setDoc(
+              doc(db, 'users', user.uid, 'tracks', track.id),
+              { folderSortOrder: index },
+              { merge: true },
+            ),
+          ),
+        );
+      } catch (e) {
+        console.warn('Firestore reorder tracks failed:', e);
       }
     }
   },

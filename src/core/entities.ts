@@ -5,9 +5,11 @@ export interface Track {
   duration: number; // in milliseconds
   file: string;     // uri or path
   folderId?: string;
+  folderSortOrder?: number;
   artwork?: string;
   lyrics?: string;
   createdAt: number;
+  lastPlayedAt?: number;
 }
 
 export interface Folder {
@@ -15,6 +17,7 @@ export interface Folder {
   name: string;
   color: string;
   createdAt: number;
+  sortOrder?: number;
   artwork?: string;
 }
 

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { FolderCard } from '../components/FolderCard';
 import { EmptyState } from '../components/EmptyState';
@@ -36,9 +37,11 @@ export const FoldersScreen: React.FC = () => {
 
   const folders      = useFoldersStore((s) => s.folders);
   const createFolder = useFoldersStore((s) => s.createFolder);
+  const reorderFolders = useFoldersStore((s) => s.reorderFolders);
   const tracks       = useLibraryStore((s) => s.tracks);
 
   const [showCreate, setShowCreate] = useState(false);
+  const [isReordering, setIsReordering] = useState(false);
 
   // ── Get up to 4 artwork URIs for a folder ──
   const getFolderArtworks = useCallback(
@@ -59,10 +62,19 @@ export const FoldersScreen: React.FC = () => {
     [createFolder],
   );
 
+  const moveFolder = useCallback(
+    (from: number, to: number) => {
+      reorderFolders(from, to);
+    },
+    [reorderFolders],
+  );
+
   const renderItem = useCallback(
-    ({ item }: { item: Folder }) => {
+    ({ item, index }: { item: Folder; index: number }) => {
       const count    = tracks.filter((t) => t.folderId === item.id).length;
       const artworks = getFolderArtworks(item);
+      const canMoveLeft = index > 0;
+      const canMoveRight = index < folders.length - 1;
 
       return (
         <View style={{ width: CARD_WIDTH }}>
@@ -72,14 +84,21 @@ export const FoldersScreen: React.FC = () => {
             trackCount={count}
             artworks={artworks}
             artwork={item.artwork}
-            onPress={() =>
-              navigation.navigate('FolderDetails', { folderId: item.id, folderName: item.name })
-            }
+            isReordering={isReordering}
+            canMoveLeft={canMoveLeft}
+            canMoveRight={canMoveRight}
+            onMoveLeft={() => moveFolder(index, index - 1)}
+            onMoveRight={() => moveFolder(index, index + 1)}
+            onLongPress={() => setIsReordering(true)}
+            onPress={() => {
+              if (isReordering) return;
+              navigation.navigate('FolderDetails', { folderId: item.id, folderName: item.name });
+            }}
           />
         </View>
       );
     },
-    [tracks, getFolderArtworks, navigation],
+    [folders.length, getFolderArtworks, isReordering, moveFolder, navigation, tracks],
   );
 
   const keyExtractor = useCallback((item: Folder) => item.id, []);
@@ -89,10 +108,25 @@ export const FoldersScreen: React.FC = () => {
       <Text style={styles.pageTitle}>Pastas</Text>
 
       <TouchableOpacity
-        onPress={() => setShowCreate(true)}
-        style={styles.createButton}
+        onPress={() => {
+          if (isReordering) {
+            setIsReordering(false);
+            return;
+          }
+          setShowCreate(true);
+        }}
+        style={[styles.createButton, isReordering && styles.doneButton]}
       >
-        <Text style={styles.createButtonText}>+ Nova pasta</Text>
+        <View style={styles.buttonContent}>
+          <Ionicons
+            name={isReordering ? 'checkmark' : 'add'}
+            size={18}
+            color={isReordering ? COLORS.text.inverse : COLORS.accent.primary}
+          />
+          <Text style={[styles.createButtonText, isReordering && styles.doneButtonText]}>
+            {isReordering ? 'Concluir' : 'Nova pasta'}
+          </Text>
+        </View>
       </TouchableOpacity>
     </View>
   );
@@ -110,7 +144,7 @@ export const FoldersScreen: React.FC = () => {
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
           <EmptyState
-            icon="📁"
+            icon="folder-outline"
             title="Nenhuma pasta ainda"
             subtitle='Toque em "+ Nova pasta" para organizar suas músicas'
           />
@@ -169,6 +203,17 @@ const styles = StyleSheet.create({
     ...TYPOGRAPHY.label,
     color: COLORS.accent.primary,
     fontWeight: '600',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: SPACING.xs,
+  },
+  doneButton: {
+    backgroundColor: COLORS.accent.primary,
+  },
+  doneButtonText: {
+    color: COLORS.text.inverse,
   },
 
   // ── Grid ──

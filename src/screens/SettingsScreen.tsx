@@ -12,6 +12,7 @@ import {
 import Constants from 'expo-constants';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { EqualizerSheet } from '../components/EqualizerSheet';
 import { SleepTimerSheet } from '../components/SleepTimerSheet';
@@ -38,22 +39,32 @@ const SectionLabel: React.FC<{ children: string }> = ({ children }) => (
 
 const Row: React.FC<{
   label: string;
+  icon?: keyof typeof Ionicons.glyphMap;
   value?: string;
   onPress?: () => void;
   trailing?: React.ReactNode;
   destructive?: boolean;
-}> = ({ label, value, onPress, trailing, destructive }) => (
+}> = ({ label, icon, value, onPress, trailing, destructive }) => (
   <TouchableOpacity
     onPress={onPress}
     disabled={!onPress}
     activeOpacity={onPress ? 0.7 : 1}
     style={styles.row}
   >
+    {icon ? (
+      <View style={styles.rowIcon}>
+        <Ionicons
+          name={icon}
+          size={19}
+          color={destructive ? COLORS.semantic.error : COLORS.text.secondary}
+        />
+      </View>
+    ) : null}
     <Text style={[styles.rowLabel, destructive && styles.rowLabelDestructive]}>
       {label}
     </Text>
     {value ? <Text style={styles.rowValue}>{value}</Text> : null}
-    {trailing ?? (onPress ? <Text style={styles.chevron}>›</Text> : null)}
+    {trailing ?? (onPress ? <Ionicons name="chevron-forward" size={20} color={COLORS.text.tertiary} /> : null)}
   </TouchableOpacity>
 );
 
@@ -162,7 +173,7 @@ export const SettingsScreen: React.FC = () => {
         style={[styles.backButton, { top: insets.top + SPACING.sm }]}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={styles.backIcon}>‹</Text>
+        <Ionicons name="chevron-back" size={30} color={COLORS.text.primary} />
       </TouchableOpacity>
 
       <ScrollView
@@ -178,9 +189,10 @@ export const SettingsScreen: React.FC = () => {
         {/* ── Conta ── */}
         <SectionLabel>CONTA</SectionLabel>
         <View style={styles.group}>
-          <Row label="E-mail" value={user?.email ?? '—'} />
+          <Row label="E-mail" icon="mail-outline" value={user?.email ?? '-'} />
           <Row
             label="Perfil"
+            icon="person-circle-outline"
             value={user?.email ? 'Ver perfil' : undefined}
             onPress={() => navigation.navigate('Profile')}
           />
@@ -191,17 +203,20 @@ export const SettingsScreen: React.FC = () => {
         <View style={styles.group}>
           <Row
             label="Tempo total escutado"
+            icon="time-outline"
             value={formatListenedTime(listenedSeconds)}
             onPress={handleResetListening}
           />
-          <Row label="Equalizador" onPress={() => setShowEq(true)} />
+          <Row label="Equalizador" icon="options-outline" onPress={() => setShowEq(true)} />
           <Row
             label="Timer (sleep)"
+            icon="moon-outline"
             value={sleepStatus}
             onPress={() => setShowSleepTimer(true)}
           />
           <Row
             label="Embaralhar"
+            icon="shuffle-outline"
             trailing={
               <Switch
                 value={shuffleEnabled}
@@ -218,6 +233,7 @@ export const SettingsScreen: React.FC = () => {
         <View style={styles.group}>
           <Row
             label="Recuperar músicas do aparelho"
+            icon="refresh-outline"
             onPress={handleRescan}
           />
         </View>
@@ -227,6 +243,7 @@ export const SettingsScreen: React.FC = () => {
         <View style={styles.group}>
           <Row
             label="Notificações"
+            icon="notifications-outline"
             trailing={
               <Switch
                 value={notificationsOn}
@@ -241,15 +258,17 @@ export const SettingsScreen: React.FC = () => {
         {/* ── Sobre ── */}
         <SectionLabel>SOBRE</SectionLabel>
         <View style={styles.group}>
-          <Row label="Versão" value={Constants.expoConfig?.version ?? '1.0.0'} />
+          <Row label="Versão" icon="information-circle-outline" value={Constants.expoConfig?.version ?? '1.0.0'} />
           <Row
             label="Termos de uso"
+            icon="document-text-outline"
             onPress={() =>
               Alert.alert('Termos de uso', 'Em breve.')
             }
           />
           <Row
             label="Privacidade"
+            icon="shield-checkmark-outline"
             onPress={() =>
               Alert.alert('Privacidade', 'Em breve.')
             }
@@ -287,12 +306,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  backIcon: {
-    fontSize: 40,
-    color: COLORS.text.primary,
-    lineHeight: 48,
-    marginTop: -4,
-  },
   content: {
     paddingHorizontal: SPACING.screenPadding,
     paddingBottom: SPACING['3xl'],
@@ -325,6 +338,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: COLORS.border.subtle,
   },
+  rowIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: RADIUS.full,
+    backgroundColor: COLORS.bg.highlight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: SPACING.sm,
+  },
   rowLabel: {
     ...TYPOGRAPHY.title,
     color: COLORS.text.primary,
@@ -339,11 +361,6 @@ const styles = StyleSheet.create({
     color: COLORS.text.secondary,
     maxWidth: '50%',
     textAlign: 'right',
-  },
-  chevron: {
-    fontSize: 22,
-    color: COLORS.text.tertiary,
-    lineHeight: 28,
   },
 
   signOutButton: {

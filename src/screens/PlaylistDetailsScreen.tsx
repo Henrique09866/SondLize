@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 
 import { usePlaylistsStore } from '../store';
 import { useLibraryStore } from '../store';
@@ -98,7 +99,7 @@ const AddTracksModal: React.FC<{
             disabled={added}
           >
             <Text style={[addStyles.addBtnText, added && addStyles.addedBtnText]}>
-              {added ? '✓ Adicionada' : '+ Adicionar'}
+              {added ? 'Adicionada' : 'Adicionar'}
             </Text>
           </TouchableOpacity>
         </View>
@@ -122,7 +123,7 @@ const AddTracksModal: React.FC<{
           <Text style={addStyles.sheetTitle}>Adicionar músicas</Text>
 
           <View style={addStyles.searchBox}>
-            <Text style={addStyles.searchIcon}>⌕</Text>
+            <Ionicons name="search" size={18} color={COLORS.text.tertiary} />
             <TextInput
               style={addStyles.searchInput}
               placeholder="Buscar músicas"
@@ -162,7 +163,6 @@ const addStyles = StyleSheet.create({
   handle:      { width: SIZES.sheet.handleWidth, height: SIZES.sheet.handleHeight, borderRadius: 2, backgroundColor: COLORS.border.strong },
   sheetTitle:  { ...TYPOGRAPHY.h3, marginBottom: SPACING.sm },
   searchBox:   { flexDirection: 'row', alignItems: 'center', backgroundColor: COLORS.bg.input, borderRadius: RADIUS.input, paddingHorizontal: SPACING.md, height: 44, gap: SPACING.sm, marginBottom: SPACING.sm },
-  searchIcon:  { fontSize: 18, color: COLORS.text.tertiary, lineHeight: 22 },
   searchInput: { flex: 1, ...TYPOGRAPHY.body, color: COLORS.text.primary, padding: 0 },
   list:        { flexGrow: 0, maxHeight: 380 },
   row:         { flexDirection: 'row', alignItems: 'center', paddingVertical: SPACING.sm, gap: SPACING.md },
@@ -263,6 +263,7 @@ export const PlaylistDetailsScreen: React.FC = () => {
   const renamePlaylist  = usePlaylistsStore((s) => s.renamePlaylist);
   const deletePlaylist  = usePlaylistsStore((s) => s.deletePlaylist);
   const allTracks       = useLibraryStore((s) => s.tracks);
+  const markTrackPlayed = useLibraryStore((s) => s.markTrackPlayed);
   const currentTrack    = usePlayerStore((s) => s.currentTrack);
   const isPlaying       = usePlayerStore((s) => s.isPlaying);
   const playQueue       = usePlayerStore((s) => s.playQueue);
@@ -286,9 +287,10 @@ export const PlaylistDetailsScreen: React.FC = () => {
 
   const handlePlayAll = useCallback(() => {
     if (!playlistTracks.length) return;
+    markTrackPlayed(playlistTracks[0].id);
     playQueue(playlistTracks, 0);
     navigation.navigate('PlayerScene');
-  }, [playlistTracks, playQueue, navigation]);
+  }, [playlistTracks, markTrackPlayed, playQueue, navigation]);
 
   const handleDelete = useCallback(() => {
     deletePlaylist(playlistId);
@@ -312,18 +314,22 @@ export const PlaylistDetailsScreen: React.FC = () => {
         isPlaying={currentTrack?.id === item.id && isPlaying}
         index={index}
         showIndex
-        onPress={() => { playQueue(playlistTracks, index); navigation.navigate('PlayerScene'); }}
+        onPress={() => {
+          markTrackPlayed(item.id);
+          playQueue(playlistTracks, index);
+          navigation.navigate('PlayerScene');
+        }}
         rightAction={
           <TouchableOpacity
             onPress={() => removeTrack(playlistId, item.id)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={detailStyles.removeIcon}>✕</Text>
+            <Ionicons name="close" size={18} color={COLORS.text.tertiary} />
           </TouchableOpacity>
         }
       />
     ),
-    [currentTrack, isPlaying, playlistTracks, playlistId, playQueue, removeTrack, navigation],
+    [currentTrack, isPlaying, markTrackPlayed, playlistTracks, playlistId, playQueue, removeTrack, navigation],
   );
 
   if (!playlist) return null;
@@ -336,7 +342,7 @@ export const PlaylistDetailsScreen: React.FC = () => {
             <Image source={{ uri: firstCover }} style={detailStyles.heroCoverImage} />
           ) : (
             <View style={[detailStyles.heroCover, detailStyles.heroCoverFallback]}>
-              <Text style={detailStyles.heroCoverIcon}>♫</Text>
+              <Ionicons name="musical-notes" size={54} color={COLORS.text.tertiary} />
             </View>
           )}
         </View>
@@ -349,11 +355,13 @@ export const PlaylistDetailsScreen: React.FC = () => {
         <View style={detailStyles.heroActions}>
           {playlistTracks.length > 0 && (
             <TouchableOpacity onPress={handlePlayAll} style={detailStyles.playAllBtn}>
-              <Text style={detailStyles.playAllText}>▶  Tocar tudo</Text>
+              <Ionicons name="play" size={18} color={COLORS.text.inverse} />
+              <Text style={detailStyles.playAllText}>Tocar tudo</Text>
             </TouchableOpacity>
           )}
           <TouchableOpacity onPress={() => setShowAdd(true)} style={detailStyles.secondaryBtn}>
-            <Text style={detailStyles.secondaryBtnText}>+ Músicas</Text>
+            <Ionicons name="add" size={18} color={COLORS.accent.primary} />
+            <Text style={detailStyles.secondaryBtnText}>Músicas</Text>
           </TouchableOpacity>
         </View>
       </Animated.View>
@@ -386,7 +394,7 @@ export const PlaylistDetailsScreen: React.FC = () => {
         style={[detailStyles.backButton, { top: insets.top + SPACING.sm }]}
         hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
       >
-        <Text style={detailStyles.backIcon}>‹</Text>
+        <Ionicons name="chevron-back" size={30} color={COLORS.text.primary} />
       </TouchableOpacity>
 
       <Animated.FlatList
@@ -396,7 +404,7 @@ export const PlaylistDetailsScreen: React.FC = () => {
         ListHeaderComponent={ListHeader}
         ListEmptyComponent={
           <EmptyState
-            icon="🎶"
+            icon="list-outline"
             title="Playlist vazia"
             subtitle='Toque em "+ Músicas" para adicionar'
           />
@@ -435,20 +443,18 @@ const detailStyles = StyleSheet.create({
   navbarTitle: { ...TYPOGRAPHY.title },
 
   backButton: { position: 'absolute', left: SPACING.screenPadding, zIndex: 20, width: SIZES.touchTarget, height: SIZES.touchTarget, alignItems: 'center', justifyContent: 'center' },
-  backIcon:   { fontSize: 32, color: COLORS.text.primary, lineHeight: 40, fontWeight: '300' },
 
   hero: { alignItems: 'center', paddingTop: SPACING['3xl'], paddingBottom: SPACING.xl, paddingHorizontal: SPACING.screenPadding, gap: SPACING.sm },
   heroCover: { width: HERO_COVER, height: HERO_COVER, borderRadius: RADIUS.coverMedium, overflow: 'hidden', ...SHADOWS.md },
   heroCoverImage: { width: '100%', height: '100%' },
   heroCoverFallback: { backgroundColor: COLORS.bg.highlight, alignItems: 'center', justifyContent: 'center' },
-  heroCoverIcon: { fontSize: 56, color: COLORS.text.tertiary },
   heroName:   { ...TYPOGRAPHY.h2, textAlign: 'center', marginTop: SPACING.sm },
   heroCount:  { ...TYPOGRAPHY.caption, color: COLORS.text.secondary },
   heroActions: { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.md },
 
-  playAllBtn:  { backgroundColor: COLORS.accent.primary, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderRadius: RADIUS.button },
+  playAllBtn:  { backgroundColor: COLORS.accent.primary, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderRadius: RADIUS.button, flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   playAllText: { ...TYPOGRAPHY.title, color: COLORS.text.inverse, fontWeight: '700' },
-  secondaryBtn: { backgroundColor: COLORS.accent.muted, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderRadius: RADIUS.button },
+  secondaryBtn: { backgroundColor: COLORS.accent.muted, paddingHorizontal: SPACING.xl, paddingVertical: SPACING.md, borderRadius: RADIUS.button, flexDirection: 'row', alignItems: 'center', gap: SPACING.xs },
   secondaryBtnText: { ...TYPOGRAPHY.title, color: COLORS.accent.primary, fontWeight: '600' },
 
   optionsRow: { flexDirection: 'row', justifyContent: 'center', gap: SPACING.xl, paddingHorizontal: SPACING.screenPadding, paddingBottom: SPACING.md },
@@ -458,5 +464,4 @@ const detailStyles = StyleSheet.create({
   sectionRow:   { paddingHorizontal: SPACING.screenPadding, paddingTop: SPACING.md, paddingBottom: SPACING.sm },
   sectionLabel: { ...TYPOGRAPHY.overline },
 
-  removeIcon: { fontSize: 14, color: COLORS.text.tertiary },
 });
