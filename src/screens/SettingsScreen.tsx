@@ -259,20 +259,6 @@ export const SettingsScreen: React.FC = () => {
         <SectionLabel>SOBRE</SectionLabel>
         <View style={styles.group}>
           <Row label="Versão" icon="information-circle-outline" value={Constants.expoConfig?.version ?? '1.0.0'} />
-          <Row
-            label="Termos de uso"
-            icon="document-text-outline"
-            onPress={() =>
-              Alert.alert('Termos de uso', 'Em breve.')
-            }
-          />
-          <Row
-            label="Privacidade"
-            icon="shield-checkmark-outline"
-            onPress={() =>
-              Alert.alert('Privacidade', 'Em breve.')
-            }
-          />
         </View>
 
         {/* ── Sign out ── */}

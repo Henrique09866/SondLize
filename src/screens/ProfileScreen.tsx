@@ -268,7 +268,7 @@ const EditNameModal: React.FC<{
         Animated.timing(backdrop, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start();
     }
-  }, [visible]);
+  }, [backdrop, currentName, translateY, visible]);
 
   const handleSave = () => {
     if (!name.trim()) return;

@@ -37,7 +37,7 @@ export const SleepTimerSheet: React.FC<SleepTimerSheetProps> = ({ visible, onClo
         Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
       ]).start();
     }
-  }, [visible]);
+  }, [fadeAnim, translateY, visible]);
 
   const panResponder = useRef(
     PanResponder.create({

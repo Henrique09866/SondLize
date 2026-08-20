@@ -220,7 +220,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         isLoading: true,
       });
 
-      if (!initialTrack) return;
+      if (!initialTrack) {
+        set({ isLoading: false });
+        return;
+      }
 
       await setupTrackPlayer();
       TrackPlayer.setMediaItems(tracks.map(toMediaItem), startIndex);

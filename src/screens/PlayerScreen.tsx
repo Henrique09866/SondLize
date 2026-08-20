@@ -28,7 +28,6 @@ import {
   RADIUS,
   SHADOWS,
   SIZES,
-  OPACITY,
   hexToRgba,
 } from '../constants/theme';
 
@@ -226,7 +225,7 @@ export const PlayerScreen: React.FC = () => {
       friction: 10,
       useNativeDriver: true,
     }).start();
-  }, [isPlaying]);
+  }, [coverScale, isPlaying]);
 
   // ── Swipe down to close ──
   const translateY = useRef(new Animated.Value(0)).current;

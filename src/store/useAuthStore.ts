@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import * as FileSystem from 'expo-file-system/legacy';
+import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import {
   auth,
   db,
-  FIREBASE_STORAGE_BUCKET,
+  storage,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -19,6 +19,7 @@ import { usePlayerStore } from './usePlayerStore';
 export interface UserProfile {
   displayName?: string;
   photoURL?: string;
+  avatarPath?: string;
   crop?: AvatarCrop;
 }
 
@@ -39,11 +40,6 @@ interface AuthState {
 const getProfileRef = (uid: string) => doc(db, 'users', uid);
 const getProfileCacheKey = (uid: string) => `@sondlize:profile:${uid}`;
 
-const createToken = () =>
-  `${Date.now()}-${Math.random().toString(36).slice(2)}-${Math.random()
-    .toString(36)
-    .slice(2)}`;
-
 const inferImageType = (uri: string) => {
   const extMatch = uri.split('?')[0].match(/\.([a-zA-Z0-9]+)$/);
   const ext = extMatch ? extMatch[1].toLowerCase() : 'jpg';
@@ -55,35 +51,6 @@ const inferImageType = (uri: string) => {
   if (safeExt === 'heif') contentType = 'image/heif';
 
   return { safeExt, contentType };
-};
-
-const uploadFileToFirebaseStorage = async (
-  uri: string,
-  objectName: string,
-  contentType: string,
-  token: string,
-) => {
-  const user = auth.currentUser;
-  if (!user) throw new Error('Usuário não autenticado.');
-
-  const idToken = await user.getIdToken();
-  const uploadUrl =
-    `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o` +
-    `?uploadType=media&name=${encodeURIComponent(objectName)}`;
-
-  const result = await FileSystem.uploadAsync(uploadUrl, uri, {
-    httpMethod: 'POST',
-    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-    headers: {
-      Authorization: `Bearer ${idToken}`,
-      'Content-Type': contentType,
-      'x-goog-meta-firebaseStorageDownloadTokens': token,
-    },
-  });
-
-  if (result.status < 200 || result.status >= 300) {
-    throw new Error(`Falha ao enviar foto. Código ${result.status}.`);
-  }
 };
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -161,19 +128,30 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (!user) throw new Error('Usuário não autenticado.');
 
     const { safeExt, contentType } = inferImageType(uri);
-    const token = createToken();
-    const objectName = `users/${user.uid}/avatar.${safeExt}`;
+    const objectName = `users/${user.uid}/avatar-${Date.now()}.${safeExt}`;
+    const storageRef = ref(storage, objectName);
 
-    await uploadFileToFirebaseStorage(uri, objectName, contentType, token);
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    await uploadBytes(storageRef, blob, { contentType });
 
-    const photoURL =
-      `https://firebasestorage.googleapis.com/v0/b/${FIREBASE_STORAGE_BUCKET}/o/` +
-      `${encodeURIComponent(objectName)}?alt=media&token=${token}`;
-    const nextProfile = { ...(useAuthStore.getState().profile ?? {}), photoURL };
+    const photoURL = await getDownloadURL(storageRef);
+    const previousAvatarPath = useAuthStore.getState().profile?.avatarPath;
+    const nextProfile = {
+      ...(useAuthStore.getState().profile ?? {}),
+      photoURL,
+      avatarPath: objectName,
+    };
 
     set({ profile: nextProfile });
     await AsyncStorage.setItem(getProfileCacheKey(user.uid), JSON.stringify(nextProfile));
     await updateProfile(user, { photoURL });
-    await setDoc(getProfileRef(user.uid), { photoURL }, { merge: true });
+    await setDoc(getProfileRef(user.uid), { photoURL, avatarPath: objectName }, { merge: true });
+
+    if (previousAvatarPath && previousAvatarPath !== objectName) {
+      deleteObject(ref(storage, previousAvatarPath)).catch((e) => {
+        console.warn('[useAuthStore] Falha ao remover avatar antigo:', e);
+      });
+    }
   },
 }));

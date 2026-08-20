@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 //  Sondlize — Design System v2.0
 //  Aesthetic: Spotify × Apple Music — deep dark, bold type,
-//  vibrant green accent, blur overlays, generous spacing.
+//  vibrant red accent, blur overlays, generous spacing.
 // ─────────────────────────────────────────────────────────────
  
 import { Platform, TextStyle, ViewStyle } from 'react-native';
@@ -19,13 +19,13 @@ export const COLORS = {
     input:      '#2A2A2A', // text inputs, search bars
   },
  
-  // Accent — Spotify-green with tonal variants
+  // Accent — SondLize red with tonal variants
   accent: {
-    primary:    '#1DB954', // main CTA, active states, progress
-    bright:     '#1ED760', // hover / pressed variant
-    dim:        '#158A3E', // subtle tint on dark bg
-    muted:      '#1DB95433', // 20% opacity fill (chips, tags)
-    glow:       '#1DB95420', // 12% — very subtle backgrounds
+    primary:    '#FF1200', // main CTA, active states, progress
+    bright:     '#FF3B30', // hover / pressed variant
+    dim:        '#A80F08', // subtle tint on dark bg
+    muted:      '#FF120033', // 20% opacity fill (chips, tags)
+    glow:       '#FF120020', // 12% — very subtle backgrounds
   },
  
   // Text hierarchy
@@ -34,8 +34,8 @@ export const COLORS = {
     secondary:  '#B3B3B3',
     tertiary:   '#727272',
     disabled:   '#404040',
-    inverse:    '#000000', // on green buttons
-    onAccent:   '#000000',
+    inverse:    '#FFFFFF',
+    onAccent:   '#FFFFFF',
   },
  
   // Borders & dividers
@@ -50,7 +50,7 @@ export const COLORS = {
     error:      '#F15E6C',
     errorMuted: '#F15E6C22',
     warning:    '#F59E0B',
-    success:    '#1DB954',
+    success:    '#FF1200',
     info:       '#3B82F6',
   },
  
@@ -59,13 +59,13 @@ export const COLORS = {
     '#E1306C', // hot pink
     '#F77737', // orange
     '#FCAF45', // amber
-    '#1DB954', // green (accent)
+    '#FF1200', // red (accent)
     '#00B4D8', // cyan
     '#4361EE', // indigo
     '#7B2FBE', // purple
     '#C77DFF', // lavender
     '#FF6B6B', // coral
-    '#2EC4B6', // teal
+    '#F43F5E', // rose
     '#FF9F1C', // gold
     '#A8DADC', // ice blue
   ],
@@ -503,7 +503,7 @@ export const darken = (hex: string, factor: number): string => {
  
 /**
  * Picks a contrasting text color (black or white) for a given background hex.
- * Usage: contrastText('#1DB954')  → '#000000'
+ * Usage: contrastText('#FF1200')  → '#FFFFFF'
  */
 export const contrastText = (bgHex: string): string => {
   const r = parseInt(bgHex.slice(1, 3), 16);
@@ -511,7 +511,7 @@ export const contrastText = (bgHex: string): string => {
   const b = parseInt(bgHex.slice(5, 7), 16);
   // WCAG relative luminance
   const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.5 ? COLORS.text.inverse : COLORS.text.primary;
+  return luminance > 0.5 ? COLORS.black : COLORS.text.primary;
 };
  
 // ─── Legacy Compatibility ────────────────────────────────────

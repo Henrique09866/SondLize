@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useEffect } from 'react';
+import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Animated,
   StyleSheet,
-  Platform,
   PanResponder,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -17,7 +16,6 @@ import {
   RADIUS,
   SHADOWS,
   SIZES,
-  OPACITY,
 } from '../constants/theme';
 
 // ─── Types ───────────────────────────────────────────────────
@@ -159,7 +157,7 @@ export const MiniPlayer: React.FC<MiniPlayerProps> = ({
       friction: 14,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [translateY]);
 
   // ── Swipe-down to dismiss ──
   const panResponder = useRef(

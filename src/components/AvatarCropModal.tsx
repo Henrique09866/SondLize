@@ -2,7 +2,6 @@ import React, { useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  Image,
   TouchableOpacity,
   Modal,
   StyleSheet,
@@ -83,7 +82,7 @@ export const AvatarCropModal: React.FC<AvatarCropModalProps> = ({
         Animated.timing(backdrop, { toValue: 0, duration: 200, useNativeDriver: true }),
       ]).start();
     }
-  }, [visible, uri]);
+  }, [backdrop, initialCrop, scaleV, translateY, txV, tyV, uri, visible]);
 
   const setValues = (s: number, tx: number, ty: number) => {
     const ns = clamp(s, MIN_SCALE, MAX_SCALE);
@@ -172,7 +171,6 @@ export const AvatarCropModal: React.FC<AvatarCropModalProps> = ({
           anchor.current = { ...a, lastX: x, lastY: y };
 
           const c = current.current;
-          const m = maxOffset(c.scale);
           setValues(c.scale, c.tx * BASE + dx, c.ty * BASE + dy);
         }
       },

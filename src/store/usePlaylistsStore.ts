@@ -35,9 +35,14 @@ interface PlaylistsState {
 
 const STORAGE_KEY = '@sondlize:playlists';
 
+const getStorageKey = () => {
+  const user = auth.currentUser;
+  return user ? `${STORAGE_KEY}:${user.uid}` : STORAGE_KEY;
+};
+
 const persist = async (playlists: Playlist[]) => {
   try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(playlists));
+    await AsyncStorage.setItem(getStorageKey(), JSON.stringify(playlists));
   } catch (e) {
     console.warn('[PlaylistsStore] persist error', e);
   }
@@ -74,6 +79,13 @@ export const usePlaylistsStore = create<PlaylistsState>((set, get) => ({
   hydrate: async () => {
     try {
       const user = auth.currentUser;
+      let local: Playlist[] = [];
+      try {
+        const raw = await AsyncStorage.getItem(getStorageKey());
+        local = raw ? JSON.parse(raw) : [];
+      } catch {
+        local = [];
+      }
 
       if (user) {
         const q = query(
@@ -85,20 +97,20 @@ export const usePlaylistsStore = create<PlaylistsState>((set, get) => ({
         snapshot.forEach((doc) => {
           playlists.push(doc.data() as Playlist);
         });
+
+        if (playlists.length === 0 && local.length > 0) {
+          set({ playlists: local, hydrated: true });
+          return;
+        }
+
         set({ playlists, hydrated: true });
         await persist(playlists);
       } else {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const parsed: Playlist[] = JSON.parse(raw);
-          set({ playlists: parsed, hydrated: true });
-        } else {
-          set({ hydrated: true });
-        }
+        set({ playlists: local, hydrated: true });
       }
     } catch {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(getStorageKey());
         if (raw) {
           const parsed: Playlist[] = JSON.parse(raw);
           set({ playlists: parsed, hydrated: true });

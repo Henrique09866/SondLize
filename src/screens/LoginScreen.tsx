@@ -107,7 +107,7 @@ export const LoginScreen: React.FC = () => {
           </View>
           <Text style={styles.brandName}>SondLize</Text>
           <Text style={styles.subtitle}>
-            {isSignUp ? 'Crie sua conta offline' : 'Entre para ouvir suas músicas'}
+            {isSignUp ? 'Crie sua conta' : 'Entre para ouvir suas músicas'}
           </Text>
         </Animated.View>
 

@@ -19,6 +19,7 @@ import {
   deleteDoc,
   query,
   orderBy,
+  deleteField,
 } from 'firebase/firestore';
 import { Track } from '../core/entities';
 import { extractMetadata } from '../utils/metadataParser';
@@ -41,9 +42,19 @@ interface LibraryState {
 
 const STORAGE_KEY = '@sondlize:library';
 
-const persistTracks = async (tracks: Track[]) => {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(tracks));
+const getStorageKey = () => {
+  const user = auth.currentUser;
+  return user ? `${STORAGE_KEY}:${user.uid}` : STORAGE_KEY;
 };
+
+const persistTracks = async (tracks: Track[]) => {
+  await AsyncStorage.setItem(getStorageKey(), JSON.stringify(tracks));
+};
+
+const withoutUndefined = <T extends object>(value: T) =>
+  Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).filter(([, item]) => item !== undefined),
+  ) as Partial<T>;
 
 const getSafeLocalName = (name?: string) =>
   name ? name.replace(/[^a-zA-Z0-9.-]/g, '_') : `track_${Date.now()}.mp3`;
@@ -104,7 +115,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       // para um resultado vindo da nuvem vazio.
       let local: Track[] = [];
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(getStorageKey());
         local = raw ? JSON.parse(raw) : [];
       } catch {
         local = [];
@@ -133,13 +144,13 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         }
 
         set({ tracks: remote, isLoaded: true });
-        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(remote));
+        await persistTracks(remote);
       } else {
         set({ tracks: local, isLoaded: true });
       }
     } catch {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(getStorageKey());
         const tracks: Track[] = raw ? JSON.parse(raw) : [];
         set({ tracks, isLoaded: true });
       } catch {
@@ -233,6 +244,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
         // Dispara a promessa sem dar o 'await' para não travar a UI
         (async () => {
           console.log('[Background Upload] Iniciando upload em segundo plano de', newTracks.length, 'músicas');
+          const failed: string[] = [];
           for (let i = 0; i < assetsToImport.length; i++) {
             const track = newTracks[i];
             try {
@@ -246,11 +258,19 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
               await uploadBytes(storageRef, blob);
 
               const trackRef = doc(db, 'users', user.uid, 'tracks', track.id);
-              await setDoc(trackRef, track);
+              await setDoc(trackRef, withoutUndefined(track));
               console.log(`[Background Upload] Sucesso ao enviar "${track.title}" para o Firebase`);
             } catch (e) {
+              failed.push(track.title);
               console.warn(`[Background Upload] Falha no upload de "${track.title}":`, e);
             }
+          }
+
+          if (failed.length > 0) {
+            Alert.alert(
+              'Sincronização pendente',
+              `${failed.length} música${failed.length === 1 ? '' : 's'} ficou${failed.length === 1 ? '' : 'ram'} salva${failed.length === 1 ? '' : 's'} no aparelho, mas não subiu${failed.length === 1 ? '' : 'ram'} para a nuvem agora.`,
+            );
           }
         })();
       }
@@ -310,7 +330,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     if (user) {
       try {
         const trackRef = doc(db, 'users', user.uid, 'tracks', trackId);
-        await setDoc(trackRef, updates, { merge: true });
+        await setDoc(trackRef, withoutUndefined(updates), { merge: true });
       } catch (e) {
         console.warn('Firestore track update failed:', e);
       }
@@ -334,7 +354,13 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     if (user) {
       try {
         const trackRef = doc(db, 'users', user.uid, 'tracks', trackId);
-        await setDoc(trackRef, { folderId, folderSortOrder: nextOrder }, { merge: true });
+        await setDoc(
+          trackRef,
+          folderId
+            ? { folderId, folderSortOrder: nextOrder }
+            : { folderId: deleteField(), folderSortOrder: deleteField() },
+          { merge: true },
+        );
       } catch (e) {
         console.warn('Firestore update failed:', e);
       }
@@ -430,13 +456,14 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
       const updatedTracks = [...get().tracks, ...recovered];
       set({ tracks: updatedTracks });
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedTracks));
+      await persistTracks(updatedTracks);
 
       // Sobe as músicas recuperadas para o Firebase em segundo plano,
       // igual ao fluxo de importação.
       const user = auth.currentUser;
       if (user) {
         (async () => {
+          const failed: string[] = [];
           for (const track of recovered) {
             try {
               const response = await fetch(track.file);
@@ -446,10 +473,18 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
               await uploadBytes(storageRef, blob);
 
               const trackRef = doc(db, 'users', user.uid, 'tracks', track.id);
-              await setDoc(trackRef, track);
+              await setDoc(trackRef, withoutUndefined(track));
             } catch (e) {
+              failed.push(track.title);
               console.warn(`[Rescan] Falha no upload de "${track.title}":`, e);
             }
+          }
+
+          if (failed.length > 0) {
+            Alert.alert(
+              'Sincronização pendente',
+              `${failed.length} música${failed.length === 1 ? '' : 's'} recuperada${failed.length === 1 ? '' : 's'} ficou${failed.length === 1 ? '' : 'ram'} salva${failed.length === 1 ? '' : 's'} no aparelho, mas não subiu${failed.length === 1 ? '' : 'ram'} para a nuvem agora.`,
+            );
           }
         })();
       }

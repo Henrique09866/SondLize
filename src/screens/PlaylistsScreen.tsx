@@ -18,8 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { usePlaylistsStore, Playlist } from '../store';
-import { useLibraryStore } from '../store';
+import { Playlist, useLibraryStore, usePlaylistsStore } from '../store';
 import { EmptyState } from '../components/EmptyState';
 import { PrimaryButton } from '../components/PrimaryButton';
 import {
@@ -58,7 +57,7 @@ const CreateModal: React.FC<{
         Animated.timing(backdrop,   { toValue: 0,   duration: 200, useNativeDriver: true }),
       ]).start();
     }
-  }, [visible]);
+  }, [backdrop, translateY, visible]);
 
   const handleCreate = () => {
     if (!name.trim()) { setError('Dê um nome para a playlist'); return; }

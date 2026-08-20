@@ -401,7 +401,7 @@ export const AppNavigator: React.FC = () => {
   useEffect(() => {
     const unsubscribe = listen();
     return unsubscribe;
-  }, []);
+  }, [listen]);
 
   if (!initialized || isLoading) {
     return (

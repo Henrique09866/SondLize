@@ -9,7 +9,7 @@ interface EqualizerSheetProps {
   onClose: () => void;
 }
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const BANDS_LABELS = ['60Hz', '230Hz', '910Hz', '3.6kHz', '14kHz'];
 
@@ -40,7 +40,7 @@ export const EqualizerSheet: React.FC<EqualizerSheetProps> = ({ visible, onClose
         Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }),
       ]).start();
     }
-  }, [visible]);
+  }, [fadeAnim, translateY, visible]);
 
   const panResponder = useRef(
     PanResponder.create({

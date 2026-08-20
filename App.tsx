@@ -5,9 +5,14 @@ import { AppNavigator } from './src/navigation/AppNavigator';
 import { usePlayerStore } from './src/store/usePlayerStore';
 import { useLibraryStore } from './src/store/useLibraryStore';
 import { useFoldersStore } from './src/store/useFoldersStore';
+import { usePlaylistsStore } from './src/store/usePlaylistsStore';
+import { useAuthStore } from './src/store/useAuthStore';
 import { setupNotifications, getNotificationsEnabled } from './src/services/notificationService';
 
 export default function App() {
+  const user = useAuthStore((s) => s.user);
+  const authInitialized = useAuthStore((s) => s.initialized);
+
   useEffect(() => {
     let appStateSubscription: any;
     let isInitialized = false;
@@ -27,10 +32,6 @@ export default function App() {
         if (await getNotificationsEnabled()) {
           await setupNotifications();
         }
-
-        useLibraryStore.getState().loadTracks();
-        useFoldersStore.getState().load();
-
         // Android requires foreground to setup TrackPlayer
         if (AppState.currentState === 'active') {
           await initTrackPlayer();
@@ -53,6 +54,14 @@ export default function App() {
       appStateSubscription?.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (!authInitialized) return;
+
+    useLibraryStore.getState().loadTracks();
+    useFoldersStore.getState().load();
+    usePlaylistsStore.getState().hydrate();
+  }, [authInitialized, user?.uid]);
 
   return (
     <SafeAreaProvider>

@@ -18,9 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 
-import { usePlaylistsStore } from '../store';
-import { useLibraryStore } from '../store';
-import { usePlayerStore } from '../store';
+import { useLibraryStore, usePlayerStore, usePlaylistsStore } from '../store';
 import { SongListItem } from '../components/SongListItem';
 import { EmptyState } from '../components/EmptyState';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -65,7 +63,7 @@ const AddTracksModal: React.FC<{
         Animated.timing(backdrop,   { toValue: 0,   duration: 220, useNativeDriver: true }),
       ]).start();
     }
-  }, [visible]);
+  }, [backdrop, translateY, visible]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return tracks;
@@ -202,7 +200,7 @@ const RenameModal: React.FC<{
         Animated.timing(backdrop,   { toValue: 0,   duration: 200, useNativeDriver: true }),
       ]).start();
     }
-  }, [visible]);
+  }, [backdrop, currentName, translateY, visible]);
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>

@@ -16,9 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { SongListItem } from '../components/SongListItem';
 import { EmptyState } from '../components/EmptyState';
-import { useFoldersStore } from '../store';
-import { useLibraryStore } from '../store';
-import { usePlayerStore } from '../store';
+import { useFoldersStore, useLibraryStore, usePlayerStore } from '../store';
 import { Track } from '../core/entities';
 import { saveFolderArtwork, deleteFolderArtwork } from '../utils/folderArtwork';
 import {
@@ -29,6 +27,7 @@ import {
   SIZES,
   hexToRgba,
   darken,
+  contrastText,
 } from '../constants/theme';
 
 // ─── Navigation types ─────────────────────────────────────────
@@ -47,7 +46,7 @@ export const FolderDetailsScreen: React.FC = () => {
   const navigation = useNavigation<any>();
   const route      = useRoute<RouteProp<RouteParams, 'FolderDetails'>>();
 
-  const { folderId, folderName } = route.params;
+  const { folderId } = route.params;
 
   const folders      = useFoldersStore((s) => s.folders);
   const updateFolder = useFoldersStore((s) => s.updateFolder);
@@ -73,6 +72,7 @@ export const FolderDetailsScreen: React.FC = () => {
   );
 
   const folderColor = folder?.color ?? COLORS.accent.primary;
+  const playButtonTextColor = contrastText(folderColor);
   const scrollY     = React.useRef(new Animated.Value(0)).current;
   const [isReordering, setIsReordering] = React.useState(false);
 
@@ -281,10 +281,10 @@ export const FolderDetailsScreen: React.FC = () => {
             <Ionicons
               name="play"
               size={18}
-              color={COLORS.text.inverse}
+              color={playButtonTextColor}
               style={styles.playButtonIcon}
             />
-            <Text style={styles.playAllText}>Tocar tudo</Text>
+            <Text style={[styles.playAllText, { color: playButtonTextColor }]}>Tocar tudo</Text>
           </TouchableOpacity>
 
           <TouchableOpacity

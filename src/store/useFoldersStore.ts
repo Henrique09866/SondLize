@@ -26,8 +26,13 @@ interface FoldersState {
 
 const STORAGE_KEY = '@sondlize:folders';
 
+const getStorageKey = () => {
+  const user = auth.currentUser;
+  return user ? `${STORAGE_KEY}:${user.uid}` : STORAGE_KEY;
+};
+
 const persist = async (folders: Folder[]) => {
-  await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(folders));
+  await AsyncStorage.setItem(getStorageKey(), JSON.stringify(folders));
 };
 
 const sortFolders = (folders: Folder[]) =>
@@ -49,7 +54,7 @@ export const useFoldersStore = create<FoldersState>((set, get) => ({
       // para um resultado vindo da nuvem vazio.
       let local: Folder[] = [];
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(getStorageKey());
         local = raw ? JSON.parse(raw) : [];
       } catch {
         local = [];
@@ -80,7 +85,7 @@ export const useFoldersStore = create<FoldersState>((set, get) => ({
       }
     } catch {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
+        const raw = await AsyncStorage.getItem(getStorageKey());
         const folders: Folder[] = raw ? JSON.parse(raw) : [];
         set({ folders: sortFolders(folders), isLoaded: true });
       } catch {
@@ -158,7 +163,7 @@ export const useFoldersStore = create<FoldersState>((set, get) => ({
       try {
         const folderRef = doc(db, 'users', user.uid, 'folders', id);
         const payload: Record<string, unknown> = { ...updates };
-        if (updates.artwork === undefined) {
+        if ('artwork' in updates && updates.artwork === undefined) {
           payload.artwork = deleteField();
         }
         await setDoc(folderRef, payload, { merge: true });

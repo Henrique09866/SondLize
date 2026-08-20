@@ -7,10 +7,9 @@ import {
   Animated,
   StyleSheet,
   ActivityIndicator,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SIZES, OPACITY } from '../constants/theme';
+import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SIZES } from '../constants/theme';
 
 // ─── Types ───────────────────────────────────────────────────
 
@@ -65,7 +64,7 @@ const EqualizerBars: React.FC = () => {
       loop2.stop();
       loop3.stop();
     };
-  }, []);
+  }, [bar1, bar2, bar3]);
 
   return (
     <View style={styles.eqContainer}>
@@ -157,7 +156,7 @@ export const SongListItem: React.FC<SongListItemProps> = ({
       friction: 12,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [scale]);
 
   const handlePressOut = useCallback(() => {
     Animated.spring(scale, {
@@ -166,7 +165,7 @@ export const SongListItem: React.FC<SongListItemProps> = ({
       friction: 12,
       useNativeDriver: true,
     }).start();
-  }, []);
+  }, [scale]);
 
   const translateY = appear.interpolate({
     inputRange: [0, 1],
