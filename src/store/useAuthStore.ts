@@ -1,7 +1,8 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { deleteObject, getDownloadURL, ref, uploadBytes } from 'firebase/storage';
+import { deleteObject, getDownloadURL, ref, uploadString } from 'firebase/storage';
+import * as FileSystem from 'expo-file-system/legacy';
 import {
   auth,
   db,
@@ -67,6 +68,9 @@ export const useAuthStore = create<AuthState>((set) => ({
         usePlayerStore.getState().loadPreferences();
       } else {
         set({ profile: null });
+        // Limpa o estado em memória ao sair para que a próxima conta não
+        // herde preferências antes de seu próprio cache ser carregado.
+        usePlayerStore.getState().loadPreferences();
       }
     });
     return unsubscribe;
@@ -131,9 +135,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     const objectName = `users/${user.uid}/avatar-${Date.now()}.${safeExt}`;
     const storageRef = ref(storage, objectName);
 
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    await uploadBytes(storageRef, blob, { contentType });
+    // O seletor do Android pode retornar uma URI local (file/content URI) que
+    // não é lida de forma confiável por fetch(). O FileSystem lê o arquivo
+    // diretamente e o SDK do Firebase envia a string Base64 sem depender de
+    // suporte a Blob no ambiente React Native.
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    if (!base64) throw new Error('A imagem selecionada está vazia.');
+    await uploadString(storageRef, base64, 'base64', { contentType });
 
     const photoURL = await getDownloadURL(storageRef);
     const previousAvatarPath = useAuthStore.getState().profile?.avatarPath;

@@ -92,8 +92,8 @@ const CreateModal: React.FC<{
           {error ? <Text style={modalStyles.errorText}>{error}</Text> : null}
 
           <View style={modalStyles.actions}>
-            <PrimaryButton label="Cancelar" onPress={onClose} variant="ghost" size="md" fullWidth />
-            <PrimaryButton label="Criar" onPress={handleCreate} variant="primary" size="md" fullWidth />
+            <PrimaryButton label="Cancelar" onPress={onClose} variant="ghost" size="md" style={{ flex: 1 }} />
+            <PrimaryButton label="Criar" onPress={handleCreate} variant="primary" size="md" style={{ flex: 1 }} />
           </View>
         </Animated.View>
       </KeyboardAvoidingView>

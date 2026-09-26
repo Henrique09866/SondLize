@@ -13,6 +13,7 @@ import {
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -184,12 +185,14 @@ const RenameModal: React.FC<{
 }> = ({ visible, currentName, onClose, onRename }) => {
   const insets = useSafeAreaInsets();
   const [name, setName] = useState(currentName);
+  const [error, setError] = useState('');
   const translateY = useRef(new Animated.Value(300)).current;
   const backdrop   = useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
     if (visible) {
       setName(currentName);
+      setError('');
       Animated.parallel([
         Animated.spring(translateY, { toValue: 0, tension: 60, friction: 14, useNativeDriver: true }),
         Animated.timing(backdrop,   { toValue: 1, duration: 220, useNativeDriver: true }),
@@ -201,6 +204,16 @@ const RenameModal: React.FC<{
       ]).start();
     }
   }, [backdrop, currentName, translateY, visible]);
+
+  const handleRename = () => {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      setError('Dê um nome para a playlist');
+      return;
+    }
+    onRename(trimmedName);
+    onClose();
+  };
 
   return (
     <Modal visible={visible} transparent animationType="none" onRequestClose={onClose} statusBarTranslucent>
@@ -214,17 +227,18 @@ const RenameModal: React.FC<{
           </View>
           <Text style={renameStyles.title}>Renomear playlist</Text>
           <TextInput
-            style={renameStyles.input}
+            style={[renameStyles.input, error ? renameStyles.inputError : null]}
             value={name}
-            onChangeText={setName}
+            onChangeText={(value) => { setName(value); setError(''); }}
             autoFocus
             returnKeyType="done"
-            onSubmitEditing={() => { onRename(name); onClose(); }}
             placeholderTextColor={COLORS.text.tertiary}
+            onSubmitEditing={handleRename}
           />
+          {error ? <Text style={renameStyles.errorText}>{error}</Text> : null}
           <View style={renameStyles.actions}>
             <PrimaryButton label="Cancelar" onPress={onClose} variant="ghost" size="md" fullWidth />
-            <PrimaryButton label="Salvar" onPress={() => { onRename(name); onClose(); }} variant="primary" size="md" fullWidth />
+            <PrimaryButton label="Salvar" onPress={handleRename} variant="primary" size="md" fullWidth />
           </View>
         </Animated.View>
       </KeyboardAvoidingView>
@@ -246,6 +260,8 @@ const renameStyles = StyleSheet.create({
   handle:    { width: SIZES.sheet.handleWidth, height: SIZES.sheet.handleHeight, borderRadius: 2, backgroundColor: COLORS.border.strong },
   title:     { ...TYPOGRAPHY.h3 },
   input:     { backgroundColor: COLORS.bg.input, borderRadius: RADIUS.input, paddingHorizontal: SPACING.md, height: 48, ...TYPOGRAPHY.body, color: COLORS.text.primary, borderWidth: StyleSheet.hairlineWidth, borderColor: COLORS.border.default },
+  inputError: { borderColor: COLORS.semantic.error },
+  errorText: { ...TYPOGRAPHY.caption, color: COLORS.semantic.error, marginTop: -SPACING.sm },
   actions:   { flexDirection: 'row', gap: SPACING.sm, marginTop: SPACING.xs },
 });
 
@@ -291,9 +307,22 @@ export const PlaylistDetailsScreen: React.FC = () => {
   }, [playlistTracks, markTrackPlayed, playQueue, navigation]);
 
   const handleDelete = useCallback(() => {
-    deletePlaylist(playlistId);
-    navigation.goBack();
-  }, [playlistId, deletePlaylist, navigation]);
+    Alert.alert(
+      'Excluir playlist',
+      `Deseja excluir "${playlist?.name ?? 'esta playlist'}"?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Excluir',
+          style: 'destructive',
+          onPress: () => {
+            deletePlaylist(playlistId);
+            navigation.goBack();
+          },
+        },
+      ],
+    );
+  }, [playlist, playlistId, deletePlaylist, navigation]);
 
   const navbarOpacity = scrollY.interpolate({ inputRange: [0, 70], outputRange: [0, 1], extrapolate: 'clamp' });
   const heroTranslate = scrollY.interpolate({ inputRange: [0, 100], outputRange: [0, -20], extrapolate: 'clamp' });

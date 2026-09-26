@@ -57,6 +57,7 @@ interface PlayerState {
   play: () => void;
   pause: () => void;
   seekTo: (seconds: number) => void;
+  removeTrackFromQueue: (trackId: string) => void;
   toggleShuffle: () => void;
   cycleRepeat: () => void;
 }
@@ -66,6 +67,7 @@ let listenersBound = false;
 const LISTENED_KEY = '@sondlize:listenedSeconds';
 const PLAYER_PREFS_KEY = '@sondlize:playerPrefs';
 const MAX_TICK_DELTA = 120; // segundos por tick (evita contagens absurdas)
+const DEFAULT_EQ_BANDS = [0, 0, 0, 0, 0];
 let lastPlaybackTick = Date.now();
 let persistTimer: ReturnType<typeof setTimeout> | null = null;
 let remotePersistTimer: ReturnType<typeof setTimeout> | null = null;
@@ -77,13 +79,18 @@ type PlayerPrefs = {
   eqBands?: number[];
 };
 
-const getPlayerSettingsRef = () => {
-  const user = auth.currentUser;
-  return user ? doc(db, 'users', user.uid, 'settings', 'player') : null;
+const getScopedStorageKey = (key: string, userId = auth.currentUser?.uid) =>
+  `${key}:${userId ?? 'anonymous'}`;
+
+const getPlayerSettingsRef = (userId = auth.currentUser?.uid) => {
+  return userId ? doc(db, 'users', userId, 'settings', 'player') : null;
 };
 
-const persistPlayerPrefsLocal = async (prefs: PlayerPrefs) => {
-  await AsyncStorage.setItem(PLAYER_PREFS_KEY, JSON.stringify(prefs));
+const persistPlayerPrefsLocal = async (prefs: PlayerPrefs, userId?: string) => {
+  await AsyncStorage.setItem(
+    getScopedStorageKey(PLAYER_PREFS_KEY, userId),
+    JSON.stringify(prefs),
+  );
 };
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
@@ -195,7 +202,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     repeatMode: 'off',
     sleepTimerEnd: null,
     eqPreset: 'Flat',
-    eqBands: [0, 0, 0, 0, 0],
+    eqBands: DEFAULT_EQ_BANDS,
     listenedSeconds: 0,
 
     initListeners: async () => {
@@ -273,6 +280,57 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       TrackPlayer.seekTo(seconds);
     },
 
+    removeTrackFromQueue: (trackId) => {
+      const { queue, originalQueue, currentTrack, isPlaying } = get();
+      if (!queue.some((track) => track.id === trackId) && currentTrack?.id !== trackId) return;
+
+      // A faixa que está sendo reproduzida não pode continuar referenciada
+      // pelo mini-player depois de ser removida da biblioteca.
+      if (currentTrack?.id === trackId) {
+        try {
+          TrackPlayer.stop();
+          TrackPlayer.clear();
+          TrackPlayer.cancelSleepTimer();
+        } catch (e) {
+          console.warn('[usePlayerStore] Falha ao limpar a fila:', e);
+        }
+        set({
+          queue: [],
+          originalQueue: [],
+          currentIndex: 0,
+          currentTrack: null,
+          isPlaying: false,
+          isLoading: false,
+          position: 0,
+          duration: 0,
+          sleepTimerEnd: null,
+        });
+        return;
+      }
+
+      const nextQueue = queue.filter((track) => track.id !== trackId);
+      const nextOriginalQueue = originalQueue.filter((track) => track.id !== trackId);
+      const currentQueueIndex = currentTrack
+        ? nextQueue.findIndex((track) => track.id === currentTrack.id)
+        : -1;
+      const nextIndex = Math.min(
+        currentQueueIndex >= 0 ? currentQueueIndex : get().currentIndex,
+        Math.max(0, nextQueue.length - 1),
+      );
+      set({
+        queue: nextQueue,
+        originalQueue: nextOriginalQueue,
+        currentIndex: nextIndex,
+      });
+
+      try {
+        TrackPlayer.setMediaItems(nextQueue.map(toMediaItem), nextIndex);
+        if (isPlaying && nextQueue.length > 0) TrackPlayer.play();
+      } catch (e) {
+        console.warn('[usePlayerStore] Falha ao atualizar a fila:', e);
+      }
+    },
+
     toggleShuffle: () => {
       const { shuffleEnabled, originalQueue, currentTrack } = get();
       const next = !shuffleEnabled;
@@ -316,21 +374,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
         if (persistTimer) clearTimeout(persistTimer);
         persistTimer = setTimeout(() => {
-          AsyncStorage.setItem(LISTENED_KEY, String(next)).catch(() => {});
           get().syncPreferences();
         }, 2000);
       } else if (persistTimer) {
         clearTimeout(persistTimer);
         persistTimer = setTimeout(() => {
-          AsyncStorage.setItem(LISTENED_KEY, String(get().listenedSeconds)).catch(() => {});
           get().syncPreferences();
         }, 0);
       }
     },
 
     loadListenedSeconds: async () => {
+      const userId = auth.currentUser?.uid;
       try {
-        const raw = await AsyncStorage.getItem(LISTENED_KEY);
+        const raw = await AsyncStorage.getItem(getScopedStorageKey(LISTENED_KEY, userId));
         const value = raw ? Number(raw) : 0;
         set({ listenedSeconds: Number.isFinite(value) ? value : 0 });
       } catch {
@@ -340,7 +397,10 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     resetListenedSeconds: async () => {
       set({ listenedSeconds: 0 });
-      await AsyncStorage.setItem(LISTENED_KEY, '0');
+      await AsyncStorage.setItem(
+        getScopedStorageKey(LISTENED_KEY),
+        '0',
+      );
       await get().syncPreferences();
     },
 
@@ -359,34 +419,56 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     loadPreferences: async () => {
+      const userId = auth.currentUser?.uid;
+      const prefsKey = getScopedStorageKey(PLAYER_PREFS_KEY, userId);
+      const listenedKey = getScopedStorageKey(LISTENED_KEY, userId);
+
+      // Nunca reutiliza em memória as preferências da conta anterior enquanto
+      // as preferências desta conta ainda estão sendo carregadas.
+      set({
+        listenedSeconds: 0,
+        shuffleEnabled: false,
+        eqPreset: 'Flat',
+        eqBands: DEFAULT_EQ_BANDS,
+      });
+
       let localPrefs: PlayerPrefs = {};
       try {
-        const rawPrefs = await AsyncStorage.getItem(PLAYER_PREFS_KEY);
+        const rawPrefs = await AsyncStorage.getItem(prefsKey);
         localPrefs = rawPrefs ? JSON.parse(rawPrefs) : {};
       } catch {
         localPrefs = {};
       }
 
       try {
-        const rawListened = await AsyncStorage.getItem(LISTENED_KEY);
+        const rawListened = await AsyncStorage.getItem(listenedKey);
         const listenedSeconds = rawListened ? Number(rawListened) : localPrefs.listenedSeconds ?? 0;
+
+        // Evita que uma leitura iniciada para a conta anterior sobrescreva a
+        // memória depois de uma troca de sessão.
+        if (auth.currentUser?.uid !== userId) return;
+
         set({
           listenedSeconds: Number.isFinite(listenedSeconds) ? listenedSeconds : 0,
           shuffleEnabled: localPrefs.shuffleEnabled ?? false,
           eqPreset: localPrefs.eqPreset ?? 'Flat',
           eqBands: Array.isArray(localPrefs.eqBands) && localPrefs.eqBands.length === 5
             ? localPrefs.eqBands
-            : [0, 0, 0, 0, 0],
+            : DEFAULT_EQ_BANDS,
         });
       } catch {
         set({ listenedSeconds: 0 });
       }
 
-      const settingsRef = getPlayerSettingsRef();
+      // A conta pode ter mudado enquanto o cache era lido.
+      if (auth.currentUser?.uid !== userId) return;
+
+      const settingsRef = getPlayerSettingsRef(userId);
       if (!settingsRef) return;
 
       try {
         const snapshot = await getDoc(settingsRef);
+        if (auth.currentUser?.uid !== userId) return;
         if (!snapshot.exists()) return;
 
         const remote = snapshot.data() as PlayerPrefs;
@@ -407,6 +489,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     syncPreferences: async () => {
+      const userId = auth.currentUser?.uid;
       const { listenedSeconds, shuffleEnabled, eqPreset, eqBands } = get();
       const prefs: PlayerPrefs = {
         listenedSeconds,
@@ -415,12 +498,18 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         eqBands,
       };
 
-      await persistPlayerPrefsLocal(prefs).catch(() => {});
-      await AsyncStorage.setItem(LISTENED_KEY, String(listenedSeconds)).catch(() => {});
+      await persistPlayerPrefsLocal(prefs, userId).catch(() => {});
+      await AsyncStorage.setItem(
+        getScopedStorageKey(LISTENED_KEY, userId),
+        String(listenedSeconds),
+      ).catch(() => {});
 
       if (remotePersistTimer) clearTimeout(remotePersistTimer);
       remotePersistTimer = setTimeout(() => {
-        const settingsRef = getPlayerSettingsRef();
+        // Não deixa uma gravação agendada pela conta anterior atingir a conta
+        // que acabou de entrar.
+        if (auth.currentUser?.uid !== userId) return;
+        const settingsRef = getPlayerSettingsRef(userId);
         if (!settingsRef) return;
         setDoc(settingsRef, { ...prefs, updatedAt: Date.now() }, { merge: true }).catch((e) =>
           console.warn('[usePlayerStore] Falha ao salvar preferências:', e),

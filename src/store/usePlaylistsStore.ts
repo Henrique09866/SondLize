@@ -29,6 +29,7 @@ interface PlaylistsState {
   deletePlaylist:  (id: string) => void;
   addTrackToPlaylist:      (playlistId: string, trackId: string) => void;
   removeTrackFromPlaylist: (playlistId: string, trackId: string) => void;
+  removeTrackFromAllPlaylists: (trackId: string) => void;
   reorderTracks:           (playlistId: string, from: number, to: number) => void;
   isTrackInPlaylist:       (playlistId: string, trackId: string) => boolean;
 }
@@ -140,8 +141,10 @@ export const usePlaylistsStore = create<PlaylistsState>((set, get) => ({
   },
 
   renamePlaylist: (id, name) => {
+    const trimmedName = name.trim();
+    if (!trimmedName) return;
     const next = get().playlists.map((p) =>
-      p.id === id ? { ...p, name: name.trim(), updatedAt: Date.now() } : p,
+      p.id === id ? { ...p, name: trimmedName, updatedAt: Date.now() } : p,
     );
     set({ playlists: next });
     persist(next);
@@ -181,6 +184,20 @@ export const usePlaylistsStore = create<PlaylistsState>((set, get) => ({
         ? p
         : { ...p, trackIds: p.trackIds.filter((id) => id !== trackId), updatedAt: Date.now() },
     );
+    set({ playlists: next });
+    persist(next);
+    syncToFirestore(next);
+  },
+
+  removeTrackFromAllPlaylists: (trackId) => {
+    const next = get().playlists.map((p) => {
+      if (!p.trackIds.includes(trackId)) return p;
+      return {
+        ...p,
+        trackIds: p.trackIds.filter((id) => id !== trackId),
+        updatedAt: Date.now(),
+      };
+    });
     set({ playlists: next });
     persist(next);
     syncToFirestore(next);

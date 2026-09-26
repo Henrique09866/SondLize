@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Dimensions, PanResponder } from 'react-native';
 import { usePlayerStore } from '../store/usePlayerStore';
 import { COLORS, TYPOGRAPHY, SPACING, RADIUS, SHADOWS, hexToRgba } from '../constants/theme';
@@ -21,6 +21,7 @@ const TIMERS = [
 export const SleepTimerSheet: React.FC<SleepTimerSheetProps> = ({ visible, onClose }) => {
   const setSleepTimer = usePlayerStore(s => s.setSleepTimer);
   const sleepTimerEnd = usePlayerStore(s => s.sleepTimerEnd);
+  const [, setClock] = useState(0);
 
   const translateY = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -38,6 +39,13 @@ export const SleepTimerSheet: React.FC<SleepTimerSheetProps> = ({ visible, onClo
       ]).start();
     }
   }, [fadeAnim, translateY, visible]);
+
+  useEffect(() => {
+    if (!visible || !sleepTimerEnd) return;
+
+    const interval = setInterval(() => setClock((value) => value + 1), 1000);
+    return () => clearInterval(interval);
+  }, [sleepTimerEnd, visible]);
 
   const panResponder = useRef(
     PanResponder.create({

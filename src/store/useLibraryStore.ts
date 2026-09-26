@@ -24,6 +24,8 @@ import {
 import { Track } from '../core/entities';
 import { extractMetadata } from '../utils/metadataParser';
 import { auth, db, storage } from '../services/firebase';
+import { usePlayerStore } from './usePlayerStore';
+import { usePlaylistsStore } from './usePlaylistsStore';
 
 interface LibraryState {
   tracks: Track[];
@@ -134,17 +136,17 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
           remote.push(doc.data() as Track);
         });
 
-        // FIX: bug de perda de dados — se o Firebase voltar vazio mas o aparelho
-        // tiver músicas locais (ex.: upload em background falhou), NÃO sobrescreve
-        // a biblioteca local com a lista vazia.
-        if (remote.length === 0 && local.length > 0) {
-          console.warn('[loadTracks] Firebase vazio; mantendo biblioteca local.');
-          set({ tracks: local, isLoaded: true });
-          return;
-        }
+        // A nuvem pode conter apenas parte das faixas quando um upload em
+        // segundo plano falha. O cache local é a fonte de recuperação dessas
+        // faixas; dados remotos com o mesmo ID continuam sendo preferidos.
+        const remoteIds = new Set(remote.map((track) => track.id));
+        const merged = [
+          ...remote,
+          ...local.filter((track) => !remoteIds.has(track.id)),
+        ].sort((a, b) => a.createdAt - b.createdAt);
 
-        set({ tracks: remote, isLoaded: true });
-        await persistTracks(remote);
+        set({ tracks: merged, isLoaded: true });
+        await persistTracks(merged);
       } else {
         set({ tracks: local, isLoaded: true });
       }
@@ -288,6 +290,10 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     if (!track) return;
 
     try {
+      // Remove a referência do player antes de apagar o arquivo físico. Isso
+      // também cobre chamadas diretas ao store, sem depender da tela pausar.
+      usePlayerStore.getState().removeTrackFromQueue(id);
+
       // Delete local file from permanent storage
       if (track.file && documentDirectory && track.file.startsWith(documentDirectory)) {
         try {
@@ -313,6 +319,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
 
       const updatedTracks = get().tracks.filter((t) => t.id !== id);
       set({ tracks: updatedTracks });
+      usePlaylistsStore.getState().removeTrackFromAllPlaylists(id);
       await persistTracks(updatedTracks);
     } catch (e) {
       console.warn('Failed to delete track:', e);
